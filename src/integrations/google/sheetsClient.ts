@@ -18,6 +18,28 @@ export class GoogleSheetsClient {
     this.fetchImpl = fetchImpl;
   }
 
+  createSpreadsheet(title: string): Promise<unknown> {
+    return this.request(sheetsBaseUrl, {
+      method: "POST",
+      body: JSON.stringify({
+        properties: {
+          title,
+        },
+      }),
+    });
+  }
+
+  getSpreadsheet(spreadsheetId: string): Promise<unknown> {
+    const params = new URLSearchParams({
+      fields: "spreadsheetId,properties.title,sheets.properties",
+    });
+
+    return this.request(
+      `${sheetsBaseUrl}/${encodeURIComponent(spreadsheetId)}?${params.toString()}`,
+      { method: "GET" },
+    );
+  }
+
   getValues(spreadsheetId: string, range: string): Promise<unknown> {
     return this.request(
       `${sheetsBaseUrl}/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(range)}`,

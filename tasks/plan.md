@@ -136,7 +136,7 @@ Project scaffold, env config, and static hosting target
 **Estimated scope:** Medium
 
 ## Task 5: Implement Spreadsheet Setup and Schema Management
-**Status:** Pending
+**Status:** Completed
 **Description:** Add logic to create or connect a spreadsheet and ensure required sheets and headers exist.
 
 **Acceptance criteria:**

@@ -83,6 +83,45 @@ describe("GoogleSheetsClient", () => {
     );
   });
 
+  it("creates a spreadsheet with the requested title", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ spreadsheetId: "sheet_123" }));
+    const client = new GoogleSheetsClient({
+      accessToken: "token_123",
+      fetch: fetchMock,
+    });
+
+    await client.createSpreadsheet("Domestic Helper Records");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://sheets.googleapis.com/v4/spreadsheets",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          properties: {
+            title: "Domestic Helper Records",
+          },
+        }),
+      }),
+    );
+  });
+
+  it("retrieves spreadsheet metadata with sheet properties", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ sheets: [] }));
+    const client = new GoogleSheetsClient({
+      accessToken: "token_123",
+      fetch: fetchMock,
+    });
+
+    await client.getSpreadsheet("sheet_123");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://sheets.googleapis.com/v4/spreadsheets/sheet_123?fields=spreadsheetId%2Cproperties.title%2Csheets.properties",
+      expect.objectContaining({
+        method: "GET",
+      }),
+    );
+  });
+
   it("throws a useful error when Google returns a non-OK response", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
