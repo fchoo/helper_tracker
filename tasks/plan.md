@@ -339,7 +339,7 @@ Project scaffold, env config, and static hosting target
 **Estimated scope:** Medium
 
 ## Task 13: End-to-End QA and Hardening
-**Status:** Pending
+**Status:** Completed
 **Description:** Add Playwright happy-path tests, run full verification, and fix defects found during browser QA.
 
 **Acceptance criteria:**

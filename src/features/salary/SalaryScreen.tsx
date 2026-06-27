@@ -70,6 +70,14 @@ export function SalaryScreen({
           value={formatSgd(summary.sundayOtAmount)}
         />
         <SummaryItem
+          label="Public holiday work"
+          value={formatSgd(summary.publicHolidayWorkAmount)}
+        />
+        <SummaryItem
+          label="Unpaid off day deduction"
+          value={formatSgd(summary.unpaidOffDayDeduction)}
+        />
+        <SummaryItem
           label="Advance deductions"
           value={formatSgd(summary.totalAdvanceDeductions)}
         />

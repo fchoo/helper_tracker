@@ -52,4 +52,25 @@ describe("ConfigScreen", () => {
     expect(onAddSalaryConfig).not.toHaveBeenCalled();
     expect(screen.getByText("Monthly salary is required.")).toBeInTheDocument();
   });
+
+  it("connects sheet setup when spreadsheet handlers are provided", async () => {
+    const onConnectSpreadsheet = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <ConfigScreen
+        spreadsheetId="sheet_existing"
+        salaryConfigs={[]}
+        onAddSalaryConfig={vi.fn()}
+        onConnectSpreadsheet={onConnectSpreadsheet}
+        onCreateSpreadsheet={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Connected to sheet_existing")).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText("Google Spreadsheet ID"), "sheet_next");
+    await userEvent.click(screen.getByRole("button", { name: "Connect sheet" }));
+
+    expect(onConnectSpreadsheet).toHaveBeenCalledWith("sheet_next");
+  });
 });

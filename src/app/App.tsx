@@ -27,6 +27,7 @@ const fallbackMonth = new Date().toISOString().slice(0, 7);
 export function App() {
   const cachedPreferences = useMemo(() => getCachedAppPreferences(), []);
   const [activeRoute, setActiveRoute] = useState<AppRouteId>("salary");
+  const [spreadsheetId, setSpreadsheetId] = useState(cachedPreferences.spreadsheetId);
   const [selectedMonth, setSelectedMonth] = useState(
     cachedPreferences.selectedMonth ?? fallbackMonth,
   );
@@ -44,9 +45,22 @@ export function App() {
     if (isMonthKey(month)) {
       setCachedAppPreferences({
         ...cachedPreferences,
+        spreadsheetId,
         selectedMonth: month,
       });
     }
+  }
+
+  function handleConnectSpreadsheet(nextSpreadsheetId: string) {
+    setSpreadsheetId(nextSpreadsheetId);
+    setCachedAppPreferences({
+      spreadsheetId: nextSpreadsheetId,
+      selectedMonth,
+    });
+  }
+
+  function handleCreateSpreadsheet() {
+    handleConnectSpreadsheet(`local_${crypto.randomUUID()}`);
   }
 
   function handleAddSalaryConfig(input: NewSalaryConfigInput) {
@@ -204,8 +218,11 @@ export function App() {
     if (routeId === "config") {
       return (
         <ConfigScreen
+          spreadsheetId={spreadsheetId}
           salaryConfigs={salaryConfigs}
           onAddSalaryConfig={handleAddSalaryConfig}
+          onConnectSpreadsheet={handleConnectSpreadsheet}
+          onCreateSpreadsheet={handleCreateSpreadsheet}
         />
       );
     }

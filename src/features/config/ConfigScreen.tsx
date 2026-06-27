@@ -1,23 +1,37 @@
 import { FormEvent, useState } from "react";
 import type { SalaryConfig } from "./types";
 import { formatSgd, parseMoneyInput } from "../../lib/money";
+import { SpreadsheetSetup } from "./SpreadsheetSetup";
 
 export type NewSalaryConfigInput = Omit<SalaryConfig, "id" | "createdAt">;
 
 export type ConfigScreenProps = {
   salaryConfigs: SalaryConfig[];
+  spreadsheetId?: string;
   onAddSalaryConfig: (config: NewSalaryConfigInput) => Promise<void> | void;
+  onConnectSpreadsheet?: (spreadsheetId: string) => Promise<void> | void;
+  onCreateSpreadsheet?: () => Promise<void> | void;
 };
 
 export function ConfigScreen({
   salaryConfigs,
+  spreadsheetId,
   onAddSalaryConfig,
+  onConnectSpreadsheet,
+  onCreateSpreadsheet,
 }: ConfigScreenProps) {
   return (
     <section aria-labelledby="config-title" className="screen">
       <header className="screen-header">
         <h2 id="config-title">Configuration</h2>
       </header>
+      {onConnectSpreadsheet && onCreateSpreadsheet ? (
+        <SpreadsheetSetup
+          spreadsheetId={spreadsheetId}
+          onConnect={onConnectSpreadsheet}
+          onCreate={onCreateSpreadsheet}
+        />
+      ) : null}
       <SalaryConfigForm onSubmit={onAddSalaryConfig} />
       <SalaryConfigList salaryConfigs={salaryConfigs} />
     </section>
