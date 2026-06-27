@@ -212,7 +212,7 @@ Project scaffold, env config, and static hosting target
 **Estimated scope:** Medium
 
 ## Task 8: Build Advances Screen with Split Deductions
-**Status:** Pending
+**Status:** Completed
 **Description:** Implement advance CRUD with one or more deduction schedule lines per advance.
 
 **Acceptance criteria:**
