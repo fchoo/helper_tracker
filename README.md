@@ -1,0 +1,37 @@
+# Domestic Helper Tracker
+
+A static-hosted React PWA for tracking domestic helper salary settings, advance deductions, days off, Sunday overtime, and monthly payout. Google Sheets is the source of truth.
+
+## Development
+
+```bash
+npm install
+cp .env.example .env.local
+npm run dev -- --host 0.0.0.0
+```
+
+## Verification
+
+```bash
+npm run build
+npm run lint
+npm run typecheck
+npm run test -- --run
+npm run test:e2e
+```
+
+## Static Hosting
+
+The app does not need a custom backend server. It does need a stable HTTPS origin for Google OAuth allowlisting, service workers, and Android PWA install behavior.
+
+Suitable deployment targets include GitHub Pages, Cloudflare Pages, Netlify static hosting, or any equivalent static-file host. Opening `dist/index.html` through `file://` is not enough for OAuth or PWA behavior.
+
+## Environment
+
+Create `.env.local` from `.env.example` and set:
+
+```bash
+VITE_GOOGLE_CLIENT_ID=your-google-oauth-client-id
+```
+
+Do not commit `.env.local`.
