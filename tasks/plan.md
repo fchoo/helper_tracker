@@ -189,7 +189,7 @@ Project scaffold, env config, and static hosting target
 ### Phase 3: Core Feature Slices
 
 ## Task 7: Build Config Screen
-**Status:** Pending
+**Status:** Completed
 **Description:** Implement salary version creation/listing and OT divisor configuration, backed by Google Sheets.
 
 **Acceptance criteria:**
