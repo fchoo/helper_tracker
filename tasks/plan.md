@@ -258,7 +258,7 @@ Project scaffold, env config, and static hosting target
 **Estimated scope:** Medium
 
 ## Task 10: Build Salary Review Screen
-**Status:** Pending
+**Status:** Completed
 **Description:** Implement the default monthly salary screen using config, advances, deductions, time records, and holidays from Sheets.
 
 **Acceptance criteria:**
