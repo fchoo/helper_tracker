@@ -58,7 +58,7 @@ Project scaffold, env config, and static hosting target
 **Estimated scope:** Medium
 
 ## Task 2: Add Domain Types and Utilities
-**Status:** Pending
+**Status:** Completed
 **Description:** Implement shared TypeScript types, date helpers, money helpers, and Zod schemas that match the spec.
 
 **Acceptance criteria:**
