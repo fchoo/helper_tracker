@@ -288,7 +288,7 @@ Project scaffold, env config, and static hosting target
 ### Phase 4: Calendar, Public Holidays, and PWA
 
 ## Task 11: Add Singapore Public Holiday Import and Calendar View
-**Status:** Pending
+**Status:** Completed
 **Description:** Implement public holiday import/management and a monthly calendar that shows Sundays, holidays, and entered time records.
 
 **Acceptance criteria:**
