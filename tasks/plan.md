@@ -235,7 +235,7 @@ Project scaffold, env config, and static hosting target
 **Estimated scope:** Medium
 
 ## Task 9: Build Time Records Screen
-**Status:** Pending
+**Status:** Completed
 **Description:** Implement off-day, Sunday overtime, and public-holiday-work records with date ranges and notes.
 
 **Acceptance criteria:**
