@@ -113,7 +113,7 @@ Project scaffold, env config, and static hosting target
 ### Phase 2: Google Sheets Integration
 
 ## Task 4: Add Google Auth and Sheets Client
-**Status:** Pending
+**Status:** Completed
 **Description:** Add Google Identity Services login and a small typed wrapper around Google Sheets API read/write operations.
 
 **Acceptance criteria:**
