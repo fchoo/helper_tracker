@@ -159,7 +159,7 @@ Project scaffold, env config, and static hosting target
 **Estimated scope:** Medium
 
 ## Task 6: Add Sheet Repositories and Local Cache Metadata
-**Status:** Pending
+**Status:** Completed
 **Description:** Implement repositories for reading/writing configs, advances, deductions, time records, and holidays; cache spreadsheet ID and lightweight preferences in IndexedDB/local storage.
 
 **Acceptance criteria:**
