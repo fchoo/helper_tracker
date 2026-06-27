@@ -313,7 +313,7 @@ Project scaffold, env config, and static hosting target
 **Estimated scope:** Medium
 
 ## Task 12: App Shell, Responsive Navigation, and PWA Setup
-**Status:** Pending
+**Status:** Completed
 **Description:** Finish the app shell, responsive navigation, installable PWA behavior, and high-signal empty/loading/error states.
 
 **Acceptance criteria:**
