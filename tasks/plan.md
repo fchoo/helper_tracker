@@ -82,7 +82,7 @@ Project scaffold, env config, and static hosting target
 **Estimated scope:** Medium
 
 ## Task 3: Implement Salary Calculation Engine
-**Status:** Pending
+**Status:** Completed
 **Description:** Build pure functions for effective salary config selection, split advance filtering, Sunday/public-holiday counts, and final payout calculation.
 
 **Acceptance criteria:**
