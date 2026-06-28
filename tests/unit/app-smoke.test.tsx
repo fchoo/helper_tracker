@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../src/app/App";
@@ -615,5 +615,118 @@ describe("App", () => {
         ]),
       ],
     );
+  });
+
+  it("keeps last synced records visible if silent Google Sheet reload cannot start", async () => {
+    localStorage.setItem(
+      "helper-tracker:preferences",
+      JSON.stringify({
+        spreadsheetId: "sheet_online",
+        selectedMonth: "2026-08",
+      }),
+    );
+    const user = userEvent.setup();
+    const requestToken = vi
+      .fn()
+      .mockResolvedValueOnce("token_123")
+      .mockRejectedValue(new Error("Google sign-in could not finish. Try again."));
+    const createGoogleTokenClient = vi.fn().mockReturnValue({ requestToken });
+    const sheetsClient = createMockGoogleSheetsClient();
+    const createGoogleSheetsClient = vi.fn().mockReturnValue(sheetsClient);
+
+    render(
+      <App
+        googleClientId="1234567890-valid.apps.googleusercontent.com"
+        createGoogleTokenClient={createGoogleTokenClient}
+        createGoogleSheetsClient={createGoogleSheetsClient}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Config" }));
+    await user.type(screen.getByLabelText("Monthly salary"), "900");
+    await user.type(screen.getByLabelText("Effective start date"), "2026-08-01");
+    await user.type(screen.getByLabelText("Salary notes"), "Refresh salary");
+    await user.click(screen.getByRole("button", { name: "Save salary plan" }));
+    expect(await screen.findByText("Refresh salary")).toBeInTheDocument();
+
+    cleanup();
+    createGoogleTokenClient.mockClear();
+    render(
+      <App
+        googleClientId="1234567890-valid.apps.googleusercontent.com"
+        createGoogleTokenClient={createGoogleTokenClient}
+        createGoogleSheetsClient={createGoogleSheetsClient}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Config" }));
+
+    expect(await screen.findByText("Refresh salary")).toBeInTheDocument();
+    expect(requestToken).toHaveBeenLastCalledWith({ prompt: "" });
+  });
+
+  it("reloads connected sheet records from Google Sheets after a browser refresh", async () => {
+    localStorage.setItem(
+      "helper-tracker:preferences",
+      JSON.stringify({
+        spreadsheetId: "sheet_online",
+        selectedMonth: "2026-08",
+      }),
+    );
+    localStorage.setItem(
+      "helper-tracker:sheet-records",
+      JSON.stringify({
+        sheet_online: {
+          salaryConfigs: [
+            {
+              id: "cfg_stale",
+              monthlySalary: 800,
+              effectiveStartDate: "2026-01-01",
+              otDayDivisor: 26,
+              notes: "Stale cached salary",
+              createdAt: "2026-06-27T12:00:00.000Z",
+            },
+          ],
+          advances: [],
+          advanceDeductions: [],
+          timeRecords: [],
+          publicHolidays: [],
+        },
+      }),
+    );
+    const requestToken = vi.fn().mockResolvedValue("token_123");
+    const createGoogleTokenClient = vi.fn().mockReturnValue({ requestToken });
+    const sheetsClient = createMockGoogleSheetsClient({
+      "Config!A:I": [
+        requiredHeaderRows.Config,
+        [
+          "cfg_fresh",
+          "940",
+          "2026-08-01",
+          "26",
+          "1",
+          "ALL_SUNDAYS",
+          "",
+          "Fresh sheet salary",
+          "2026-06-28T12:00:00.000Z",
+        ],
+      ],
+    });
+    const createGoogleSheetsClient = vi.fn().mockReturnValue(sheetsClient);
+
+    render(
+      <App
+        googleClientId="1234567890-valid.apps.googleusercontent.com"
+        createGoogleTokenClient={createGoogleTokenClient}
+        createGoogleSheetsClient={createGoogleSheetsClient}
+      />,
+    );
+
+    expect(screen.getByText("Stale cached salary")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Config" }));
+    expect(await screen.findByText("Fresh sheet salary")).toBeInTheDocument();
+    expect(screen.queryByText("Stale cached salary")).not.toBeInTheDocument();
+    expect(requestToken).toHaveBeenCalledWith({ prompt: "" });
+    expect(sheetsClient.getValues).toHaveBeenCalledWith("sheet_online", "Config!A:I");
   });
 });

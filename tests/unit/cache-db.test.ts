@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   getCachedAppPreferences,
+  getCachedSheetRecords,
   setCachedAppPreferences,
+  setCachedSheetRecords,
 } from "../../src/persistence/cacheDb";
 
 describe("cacheDb", () => {
@@ -65,5 +67,32 @@ describe("cacheDb", () => {
 
   it("returns empty preferences when nothing is cached", () => {
     expect(getCachedAppPreferences()).toEqual({});
+  });
+
+  it("stores last synced sheet records by spreadsheet id", () => {
+    setCachedSheetRecords("sheet_123", {
+      salaryConfigs: [
+        {
+          id: "cfg_1",
+          monthlySalary: 900,
+          effectiveStartDate: "2026-08-01",
+          otDayDivisor: 26,
+          notes: "Cached salary",
+          createdAt: "2026-06-28T12:00:00.000Z",
+        },
+      ],
+      advances: [],
+      advanceDeductions: [],
+      timeRecords: [],
+      publicHolidays: [],
+    });
+
+    expect(getCachedSheetRecords("sheet_123").salaryConfigs).toEqual([
+      expect.objectContaining({
+        id: "cfg_1",
+        notes: "Cached salary",
+      }),
+    ]);
+    expect(getCachedSheetRecords("sheet_other").salaryConfigs).toEqual([]);
   });
 });

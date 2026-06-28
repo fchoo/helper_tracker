@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AdvancesScreen,
   type EditAdvancePayload,
@@ -24,8 +24,11 @@ import type { TimeRecord } from "../features/time-records/types";
 import { isMonthKey } from "../lib/dates";
 import {
   getCachedAppPreferences,
+  getCachedSheetRecords,
   sanitizeCachedAppPreferences,
   setCachedAppPreferences,
+  setCachedSheetRecords,
+  type CachedSheetRecords,
   type CachedAppPreferences,
 } from "../persistence/cacheDb";
 import { fetchSingaporePublicHolidays } from "../integrations/singapore/publicHolidays";
@@ -67,6 +70,18 @@ type GoogleAccountStorageClient = Pick<
   "readJsonFile" | "writeJsonFile"
 >;
 
+function createDefaultGoogleSheetsClient(options: {
+  accessToken: string;
+}): GoogleSheetsAppClient {
+  return new GoogleSheetsClient(options);
+}
+
+function createDefaultGoogleDriveAppDataClient(options: {
+  accessToken: string;
+}): GoogleAccountStorageClient {
+  return new GoogleDriveAppDataClient(options);
+}
+
 export type AppProps = {
   googleClientId?: string;
   createGoogleTokenClient?: (options: {
@@ -84,11 +99,14 @@ export type AppProps = {
 export function App({
   googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID,
   createGoogleTokenClient = createDefaultGoogleTokenClient,
-  createGoogleSheetsClient = (options) => new GoogleSheetsClient(options),
-  createGoogleDriveAppDataClient = (options) =>
-    new GoogleDriveAppDataClient(options),
+  createGoogleSheetsClient = createDefaultGoogleSheetsClient,
+  createGoogleDriveAppDataClient = createDefaultGoogleDriveAppDataClient,
 }: AppProps = {}) {
   const cachedPreferences = useMemo(() => getCachedAppPreferences(), []);
+  const cachedSheetRecords = useMemo(
+    () => getCachedSheetRecords(cachedPreferences.spreadsheetId),
+    [cachedPreferences.spreadsheetId],
+  );
   const deploymentGoogleClientId = normalizeGoogleClientId(googleClientId);
   const [activeRoute, setActiveRoute] = useState<AppRouteId>("salary");
   const [spreadsheetId, setSpreadsheetId] = useState(cachedPreferences.spreadsheetId);
@@ -101,15 +119,114 @@ export function App({
   const [browserGoogleClientId, setBrowserGoogleClientId] = useState(
     cachedPreferences.googleClientId,
   );
-  const [salaryConfigs, setSalaryConfigs] = useState<SalaryConfig[]>([]);
-  const [advances, setAdvances] = useState<Advance[]>([]);
-  const [advanceDeductions, setAdvanceDeductions] = useState<AdvanceDeduction[]>(
-    [],
+  const [salaryConfigs, setSalaryConfigs] = useState<SalaryConfig[]>(
+    cachedSheetRecords.salaryConfigs,
   );
-  const [timeRecords, setTimeRecords] = useState<TimeRecord[]>([]);
-  const [publicHolidays, setPublicHolidays] = useState<PublicHoliday[]>([]);
+  const [advances, setAdvances] = useState<Advance[]>(cachedSheetRecords.advances);
+  const [advanceDeductions, setAdvanceDeductions] = useState<AdvanceDeduction[]>(
+    cachedSheetRecords.advanceDeductions,
+  );
+  const [timeRecords, setTimeRecords] = useState<TimeRecord[]>(
+    cachedSheetRecords.timeRecords,
+  );
+  const [publicHolidays, setPublicHolidays] = useState<PublicHoliday[]>(
+    cachedSheetRecords.publicHolidays,
+  );
   const activeGoogleClientId = deploymentGoogleClientId ?? browserGoogleClientId;
   const googleSheetsAccessTokenRef = useRef<string | undefined>(undefined);
+  const autoLoadedSpreadsheetKeyRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    const targetSpreadsheetId = normalizeGoogleSpreadsheetId(spreadsheetId);
+
+    if (!targetSpreadsheetId || !activeGoogleClientId) {
+      return undefined;
+    }
+
+    const autoLoadKey = `${activeGoogleClientId}:${targetSpreadsheetId}`;
+
+    if (autoLoadedSpreadsheetKeyRef.current === autoLoadKey) {
+      return undefined;
+    }
+
+    autoLoadedSpreadsheetKeyRef.current = autoLoadKey;
+
+    let isCancelled = false;
+    let retryCount = 0;
+    let retryTimeoutId: number | undefined;
+    const googleClientIdForLoad = activeGoogleClientId;
+    const spreadsheetIdForLoad = targetSpreadsheetId;
+
+    async function loadFromGoogleSheet() {
+      try {
+        const tokenClient = createGoogleTokenClient({
+          clientId: googleClientIdForLoad,
+          scope: GOOGLE_SHEETS_SCOPE,
+        });
+        const accessToken = await tokenClient.requestToken({ prompt: "" });
+
+        if (isCancelled) {
+          return;
+        }
+
+        googleSheetsAccessTokenRef.current = accessToken;
+        const sheetsClient = createGoogleSheetsClient({ accessToken });
+        const repository = new SheetsRepository(spreadsheetIdForLoad, sheetsClient);
+        const [
+          nextSalaryConfigs,
+          nextAdvances,
+          nextAdvanceDeductions,
+          nextTimeRecords,
+          nextPublicHolidays,
+        ] = await Promise.all([
+          repository.listSalaryConfigs(),
+          repository.listAdvances(),
+          repository.listAdvanceDeductions(),
+          repository.listTimeRecords(),
+          repository.listPublicHolidays(),
+        ]);
+
+        if (isCancelled) {
+          return;
+        }
+
+        applySpreadsheetRecords(spreadsheetIdForLoad, {
+          salaryConfigs: nextSalaryConfigs,
+          advances: nextAdvances,
+          advanceDeductions: nextAdvanceDeductions,
+          timeRecords: nextTimeRecords,
+          publicHolidays: nextPublicHolidays,
+        });
+      } catch (caughtError) {
+        if (isCancelled) {
+          return;
+        }
+
+        if (isGoogleIdentityLoadingError(caughtError) && retryCount < 20) {
+          retryCount += 1;
+          retryTimeoutId = window.setTimeout(loadFromGoogleSheet, 500);
+          return;
+        }
+
+        autoLoadedSpreadsheetKeyRef.current = undefined;
+      }
+    }
+
+    void loadFromGoogleSheet();
+
+    return () => {
+      isCancelled = true;
+
+      if (retryTimeoutId) {
+        window.clearTimeout(retryTimeoutId);
+      }
+    };
+  }, [
+    activeGoogleClientId,
+    createGoogleSheetsClient,
+    createGoogleTokenClient,
+    spreadsheetId,
+  ]);
 
   function buildCurrentPreferences(
     overrides: CachedAppPreferences = {},
@@ -125,6 +242,45 @@ export function App({
 
   function cachePreferences(overrides: CachedAppPreferences = {}) {
     setCachedAppPreferences(buildCurrentPreferences(overrides));
+  }
+
+  function cacheSheetRecords(
+    overrides: Partial<CachedSheetRecords> = {},
+    targetSpreadsheetId: string | undefined = spreadsheetId,
+  ) {
+    setCachedSheetRecords(targetSpreadsheetId, {
+      salaryConfigs,
+      advances,
+      advanceDeductions,
+      timeRecords,
+      publicHolidays,
+      ...overrides,
+    });
+  }
+
+  function applySpreadsheetRecords(
+    targetSpreadsheetId: string,
+    records: CachedSheetRecords,
+  ) {
+    setSalaryConfigs(records.salaryConfigs);
+    setAdvances(records.advances);
+    setAdvanceDeductions(records.advanceDeductions);
+    setTimeRecords(records.timeRecords);
+    setPublicHolidays(records.publicHolidays);
+    setCachedSheetRecords(targetSpreadsheetId, records);
+
+    const newestPayCycleStartDay = [...records.salaryConfigs]
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .find((config) => config.payCycleStartDay)?.payCycleStartDay;
+
+    if (newestPayCycleStartDay) {
+      setPayCycleStartDay(newestPayCycleStartDay);
+      setCachedAppPreferences({
+        ...getCachedAppPreferences(),
+        spreadsheetId: targetSpreadsheetId,
+        payCycleStartDay: newestPayCycleStartDay,
+      });
+    }
   }
 
   function handleMonthChange(month: string) {
@@ -356,23 +512,13 @@ export function App({
       repository.listPublicHolidays(),
     ]);
 
-    setSalaryConfigs(nextSalaryConfigs);
-    setAdvances(nextAdvances);
-    setAdvanceDeductions(nextAdvanceDeductions);
-    setTimeRecords(nextTimeRecords);
-    setPublicHolidays(nextPublicHolidays);
-
-    const newestPayCycleStartDay = [...nextSalaryConfigs]
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      .find((config) => config.payCycleStartDay)?.payCycleStartDay;
-
-    if (newestPayCycleStartDay) {
-      setPayCycleStartDay(newestPayCycleStartDay);
-      cachePreferences({
-        spreadsheetId: targetSpreadsheetId,
-        payCycleStartDay: newestPayCycleStartDay,
-      });
-    }
+    applySpreadsheetRecords(targetSpreadsheetId, {
+      salaryConfigs: nextSalaryConfigs,
+      advances: nextAdvances,
+      advanceDeductions: nextAdvanceDeductions,
+      timeRecords: nextTimeRecords,
+      publicHolidays: nextPublicHolidays,
+    });
   }
 
   function buildAccountPreferences(
@@ -400,6 +546,9 @@ export function App({
       payCycleStartDay: input.payCycleStartDay ?? defaultPayCycleStartDay,
     });
     setSalaryConfigs((currentConfigs) => [...currentConfigs, salaryConfig]);
+    cacheSheetRecords({
+      salaryConfigs: [...salaryConfigs, salaryConfig],
+    });
   }
 
   async function handleAddAdvance(payload: NewAdvancePayload) {
@@ -424,6 +573,10 @@ export function App({
       ...currentDeductions,
       ...deductions,
     ]);
+    cacheSheetRecords({
+      advances: [...advances, advance],
+      advanceDeductions: [...advanceDeductions, ...deductions],
+    });
   }
 
   async function handleUpdateAdvance(payload: EditAdvancePayload) {
@@ -451,12 +604,21 @@ export function App({
         advance.id === payload.advanceId ? { ...advance, ...payload.advance } : advance,
       ),
     );
-    setAdvanceDeductions((currentDeductions) => [
-      ...currentDeductions.filter(
+    const nextAdvanceDeductions = [
+      ...advanceDeductions.filter(
         (deduction) => deduction.advanceId !== payload.advanceId,
       ),
       ...deductions,
-    ]);
+    ];
+    setAdvanceDeductions(nextAdvanceDeductions);
+    cacheSheetRecords({
+      advances: advances.map((currentAdvance) =>
+        currentAdvance.id === payload.advanceId
+          ? { ...currentAdvance, ...payload.advance }
+          : currentAdvance,
+      ),
+      advanceDeductions: nextAdvanceDeductions,
+    });
   }
 
   async function handleAddTimeRecord(input: NewTimeRecordInput) {
@@ -469,6 +631,9 @@ export function App({
 
     await repository.addTimeRecord(timeRecord);
     setTimeRecords((currentRecords) => [...currentRecords, timeRecord]);
+    cacheSheetRecords({
+      timeRecords: [...timeRecords, timeRecord],
+    });
   }
 
   async function handleUpdateTimeRecord(record: TimeRecord) {
@@ -480,6 +645,11 @@ export function App({
         currentRecord.id === record.id ? record : currentRecord,
       ),
     );
+    cacheSheetRecords({
+      timeRecords: timeRecords.map((currentRecord) =>
+        currentRecord.id === record.id ? record : currentRecord,
+      ),
+    });
   }
 
   async function handleImportPublicHolidays(year: number) {
@@ -490,6 +660,9 @@ export function App({
     setPublicHolidays((currentHolidays) =>
       mergePublicHolidays(currentHolidays, importedHolidays),
     );
+    cacheSheetRecords({
+      publicHolidays: mergePublicHolidays(publicHolidays, importedHolidays),
+    });
     return importedHolidays;
   }
 
@@ -509,6 +682,9 @@ export function App({
     setPublicHolidays((currentHolidays) =>
       mergePublicHolidays(currentHolidays, [holiday]),
     );
+    cacheSheetRecords({
+      publicHolidays: mergePublicHolidays(publicHolidays, [holiday]),
+    });
     return holiday;
   }
 
@@ -523,6 +699,11 @@ export function App({
         currentHoliday.id === holiday.id ? holiday : currentHoliday,
       ),
     );
+    cacheSheetRecords({
+      publicHolidays: publicHolidays.map((currentHoliday) =>
+        currentHoliday.id === holiday.id ? holiday : currentHoliday,
+      ),
+    });
     return holiday;
   }
 
@@ -533,6 +714,9 @@ export function App({
     setPublicHolidays((currentHolidays) =>
       currentHolidays.filter((holiday) => holiday.id !== holidayId),
     );
+    cacheSheetRecords({
+      publicHolidays: publicHolidays.filter((holiday) => holiday.id !== holidayId),
+    });
   }
 
   return (
@@ -729,4 +913,11 @@ function mergePublicHolidays(
   }
 
   return [...byId.values()];
+}
+
+function isGoogleIdentityLoadingError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message === "Google Identity Services is not loaded."
+  );
 }
