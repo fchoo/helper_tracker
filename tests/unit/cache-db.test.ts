@@ -14,13 +14,23 @@ describe("cacheDb", () => {
       spreadsheetId: "sheet_123",
       selectedMonth: "2026-06",
       payCycleStartDay: 26,
+      googleClientId: "1234567890-valid.apps.googleusercontent.com",
     });
 
     expect(getCachedAppPreferences()).toEqual({
       spreadsheetId: "sheet_123",
       selectedMonth: "2026-06",
       payCycleStartDay: 26,
+      googleClientId: "1234567890-valid.apps.googleusercontent.com",
     });
+  });
+
+  it("rejects invalid Google OAuth client ids from browser preferences", () => {
+    setCachedAppPreferences({
+      googleClientId: "not-a-client-secret",
+    });
+
+    expect(getCachedAppPreferences()).toEqual({});
   });
 
   it("returns empty preferences when nothing is cached", () => {

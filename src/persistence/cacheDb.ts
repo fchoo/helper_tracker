@@ -1,9 +1,11 @@
 import { isMonthKey } from "../lib/dates";
+import { normalizeGoogleClientId } from "../integrations/google/clientId";
 
 export type CachedAppPreferences = {
   spreadsheetId?: string;
   selectedMonth?: string;
   payCycleStartDay?: number;
+  googleClientId?: string;
 };
 
 const cacheKey = "helper-tracker:preferences";
@@ -33,6 +35,9 @@ function sanitizePreferences(
       : {}),
     ...(isPayCycleStartDay(preferences.payCycleStartDay)
       ? { payCycleStartDay: preferences.payCycleStartDay }
+      : {}),
+    ...(normalizeGoogleClientId(preferences.googleClientId)
+      ? { googleClientId: normalizeGoogleClientId(preferences.googleClientId) }
       : {}),
   };
 }

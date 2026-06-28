@@ -1,4 +1,5 @@
 import { FormEvent, useState } from "react";
+import { normalizeGoogleClientId } from "../../integrations/google/clientId";
 import {
   buildUncheckedSpreadsheetHealth,
   checkSpreadsheetHealth,
@@ -7,26 +8,59 @@ import {
 
 export type SpreadsheetSetupProps = {
   spreadsheetId?: string;
+  googleClientId?: string;
+  isGoogleOAuthConfigured?: boolean;
+  isDeploymentGoogleOAuthConfigured?: boolean;
   onConnect: (spreadsheetId: string) => Promise<void> | void;
   onCreate: () => Promise<void> | void;
+  onSaveGoogleClientId?: (clientId: string) => Promise<void> | void;
+  onClearGoogleClientId?: () => Promise<void> | void;
   onHealthCheck?: (spreadsheetId: string) => Promise<SpreadsheetHealthCheck> | SpreadsheetHealthCheck;
 };
 
 export function SpreadsheetSetup({
   spreadsheetId,
+  googleClientId,
+  isGoogleOAuthConfigured,
+  isDeploymentGoogleOAuthConfigured = false,
   onConnect,
   onCreate,
+  onSaveGoogleClientId,
+  onClearGoogleClientId,
   onHealthCheck,
 }: SpreadsheetSetupProps) {
+  const [inputGoogleClientId, setInputGoogleClientId] = useState("");
   const [inputSpreadsheetId, setInputSpreadsheetId] = useState("");
   const [error, setError] = useState("");
   const [healthCheck, setHealthCheck] = useState<SpreadsheetHealthCheck>();
   const [isCheckingHealth, setIsCheckingHealth] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const canCreateSpreadsheet = isGoogleOAuthConfigured ?? true;
   const displayedHealthCheck =
     healthCheck && healthCheck.spreadsheetId === spreadsheetId
       ? healthCheck
       : buildUncheckedSpreadsheetHealth(spreadsheetId);
+
+  async function handleSaveGoogleClientId(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const normalizedGoogleClientId = normalizeGoogleClientId(inputGoogleClientId);
+
+    if (!normalizedGoogleClientId) {
+      setError("Enter a valid Google OAuth Client ID.");
+      return;
+    }
+
+    setError("");
+    await onSaveGoogleClientId?.(normalizedGoogleClientId);
+    setInputGoogleClientId(normalizedGoogleClientId);
+  }
+
+  async function handleClearGoogleClientId() {
+    setError("");
+    await onClearGoogleClientId?.();
+    setInputGoogleClientId("");
+  }
 
   async function handleConnect(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -45,6 +79,11 @@ export function SpreadsheetSetup({
 
   async function handleCreate() {
     setError("");
+
+    if (!canCreateSpreadsheet) {
+      setError("Add a Google OAuth Client ID before creating an online Google Sheet.");
+      return;
+    }
 
     try {
       setIsCreating(true);
@@ -104,8 +143,48 @@ export function SpreadsheetSetup({
       </div>
 
       <div className="setup-grid">
+        {onSaveGoogleClientId ? (
+          <div className="setup-card">
+            <span className="setup-step">1</span>
+            <h3>Google OAuth</h3>
+            {isDeploymentGoogleOAuthConfigured ? (
+              <p>Deployment OAuth is ready.</p>
+            ) : googleClientId ? (
+              <p className="connected-sheet">Browser OAuth is ready.</p>
+            ) : (
+              <p>Add OAuth before creating an online workbook.</p>
+            )}
+            {isDeploymentGoogleOAuthConfigured ? null : (
+              <form className="inline-form" onSubmit={handleSaveGoogleClientId}>
+                <label>
+                  OAuth Client ID
+                  <input
+                    value={inputGoogleClientId}
+                    onChange={(event) => setInputGoogleClientId(event.target.value)}
+                    placeholder={
+                      googleClientId ??
+                      "1234567890-abc.apps.googleusercontent.com"
+                    }
+                  />
+                </label>
+                <div className="button-row">
+                  <button type="submit">Save OAuth ID</button>
+                  {googleClientId ? (
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={handleClearGoogleClientId}
+                    >
+                      Clear OAuth ID
+                    </button>
+                  ) : null}
+                </div>
+              </form>
+            )}
+          </div>
+        ) : null}
         <div className="setup-card">
-          <span className="setup-step">1</span>
+          <span className="setup-step">{onSaveGoogleClientId ? "2" : "1"}</span>
           <h3>Connect workbook</h3>
           {spreadsheetId ? (
             <p className="connected-sheet">Connected to {spreadsheetId}</p>
@@ -127,7 +206,7 @@ export function SpreadsheetSetup({
                 type="button"
                 className="secondary-button"
                 onClick={handleCreate}
-                disabled={isCreating}
+                disabled={isCreating || !canCreateSpreadsheet}
               >
                 {isCreating ? "Creating..." : "Create new sheet"}
               </button>
@@ -136,7 +215,7 @@ export function SpreadsheetSetup({
         </div>
 
         <div className="setup-card health-card">
-          <span className="setup-step">2</span>
+          <span className="setup-step">{onSaveGoogleClientId ? "3" : "2"}</span>
           <h3>Health check</h3>
           <dl className="health-grid">
             <div>

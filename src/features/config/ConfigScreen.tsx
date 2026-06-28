@@ -14,9 +14,14 @@ export type ConfigScreenProps = {
   salaryConfigs: SalaryConfig[];
   publicHolidays?: PublicHoliday[];
   spreadsheetId?: string;
+  googleClientId?: string;
+  isGoogleOAuthConfigured?: boolean;
+  isDeploymentGoogleOAuthConfigured?: boolean;
   onAddSalaryConfig: (config: NewSalaryConfigInput) => Promise<void> | void;
   onConnectSpreadsheet?: (spreadsheetId: string) => Promise<void> | void;
   onCreateSpreadsheet?: () => Promise<void> | void;
+  onSaveGoogleClientId?: (clientId: string) => Promise<void> | void;
+  onClearGoogleClientId?: () => Promise<void> | void;
   onCheckSpreadsheetHealth?: (spreadsheetId: string) => Promise<SpreadsheetHealthCheck> | SpreadsheetHealthCheck;
   onImportPublicHolidays?: (year: number) => Promise<PublicHoliday[]>;
   onAddPublicHoliday?: (
@@ -33,9 +38,14 @@ export function ConfigScreen({
   salaryConfigs,
   publicHolidays = [],
   spreadsheetId,
+  googleClientId,
+  isGoogleOAuthConfigured,
+  isDeploymentGoogleOAuthConfigured,
   onAddSalaryConfig,
   onConnectSpreadsheet,
   onCreateSpreadsheet,
+  onSaveGoogleClientId,
+  onClearGoogleClientId,
   onCheckSpreadsheetHealth,
   onImportPublicHolidays,
   onAddPublicHoliday,
@@ -53,8 +63,13 @@ export function ConfigScreen({
       {onConnectSpreadsheet && onCreateSpreadsheet ? (
         <SpreadsheetSetup
           spreadsheetId={spreadsheetId}
+          googleClientId={googleClientId}
+          isGoogleOAuthConfigured={isGoogleOAuthConfigured}
+          isDeploymentGoogleOAuthConfigured={isDeploymentGoogleOAuthConfigured}
           onConnect={onConnectSpreadsheet}
           onCreate={onCreateSpreadsheet}
+          onSaveGoogleClientId={onSaveGoogleClientId}
+          onClearGoogleClientId={onClearGoogleClientId}
           onHealthCheck={onCheckSpreadsheetHealth}
         />
       ) : null}

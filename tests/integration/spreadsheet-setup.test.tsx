@@ -47,7 +47,13 @@ describe("SpreadsheetSetup", () => {
   it("creates a new spreadsheet", async () => {
     const onCreate = vi.fn().mockResolvedValue(undefined);
 
-    render(<SpreadsheetSetup onConnect={vi.fn()} onCreate={onCreate} />);
+    render(
+      <SpreadsheetSetup
+        isGoogleOAuthConfigured
+        onConnect={vi.fn()}
+        onCreate={onCreate}
+      />,
+    );
 
     await userEvent.click(screen.getByRole("button", { name: "Create new sheet" }));
 
@@ -57,11 +63,53 @@ describe("SpreadsheetSetup", () => {
   it("shows a creation error when Google Sheet creation fails", async () => {
     const onCreate = vi.fn().mockRejectedValue(new Error("Google OAuth is not configured."));
 
-    render(<SpreadsheetSetup onConnect={vi.fn()} onCreate={onCreate} />);
+    render(
+      <SpreadsheetSetup
+        isGoogleOAuthConfigured
+        onConnect={vi.fn()}
+        onCreate={onCreate}
+      />,
+    );
 
     await userEvent.click(screen.getByRole("button", { name: "Create new sheet" }));
 
     expect(await screen.findByText("Google OAuth is not configured.")).toBeInTheDocument();
+  });
+
+  it("saves a valid browser OAuth client id", async () => {
+    const onSaveGoogleClientId = vi.fn();
+
+    render(
+      <SpreadsheetSetup
+        onConnect={vi.fn()}
+        onCreate={vi.fn()}
+        onSaveGoogleClientId={onSaveGoogleClientId}
+      />,
+    );
+
+    await userEvent.type(
+      screen.getByLabelText("OAuth Client ID"),
+      "1234567890-local.apps.googleusercontent.com",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Save OAuth ID" }));
+
+    expect(onSaveGoogleClientId).toHaveBeenCalledWith(
+      "1234567890-local.apps.googleusercontent.com",
+    );
+  });
+
+  it("blocks sheet creation until Google OAuth is configured", async () => {
+    const onCreate = vi.fn();
+
+    render(
+      <SpreadsheetSetup
+        isGoogleOAuthConfigured={false}
+        onConnect={vi.fn()}
+        onCreate={onCreate}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Create new sheet" })).toBeDisabled();
   });
 
   it("shows a validation message before connecting an empty spreadsheet id", async () => {

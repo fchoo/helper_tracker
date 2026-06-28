@@ -22,8 +22,13 @@ import { checkSpreadsheetHealth } from "../features/config/spreadsheetHealth";
 import { SalaryScreen } from "../features/salary/SalaryScreen";
 import type { TimeRecord } from "../features/time-records/types";
 import { isMonthKey } from "../lib/dates";
-import { getCachedAppPreferences, setCachedAppPreferences } from "../persistence/cacheDb";
+import {
+  getCachedAppPreferences,
+  setCachedAppPreferences,
+  type CachedAppPreferences,
+} from "../persistence/cacheDb";
 import { fetchSingaporePublicHolidays } from "../integrations/singapore/publicHolidays";
+import { normalizeGoogleClientId } from "../integrations/google/clientId";
 import {
   createGoogleTokenClient as createDefaultGoogleTokenClient,
   type AppGoogleTokenClient,
@@ -53,6 +58,7 @@ export function App({
   createGoogleSheetsClient = (options) => new GoogleSheetsClient(options),
 }: AppProps = {}) {
   const cachedPreferences = useMemo(() => getCachedAppPreferences(), []);
+  const deploymentGoogleClientId = normalizeGoogleClientId(googleClientId);
   const [activeRoute, setActiveRoute] = useState<AppRouteId>("salary");
   const [spreadsheetId, setSpreadsheetId] = useState(cachedPreferences.spreadsheetId);
   const [selectedMonth, setSelectedMonth] = useState(
@@ -61,6 +67,9 @@ export function App({
   const [payCycleStartDay, setPayCycleStartDay] = useState(
     cachedPreferences.payCycleStartDay ?? defaultPayCycleStartDay,
   );
+  const [browserGoogleClientId, setBrowserGoogleClientId] = useState(
+    cachedPreferences.googleClientId,
+  );
   const [salaryConfigs, setSalaryConfigs] = useState<SalaryConfig[]>([]);
   const [advances, setAdvances] = useState<Advance[]>([]);
   const [advanceDeductions, setAdvanceDeductions] = useState<AdvanceDeduction[]>(
@@ -68,35 +77,53 @@ export function App({
   );
   const [timeRecords, setTimeRecords] = useState<TimeRecord[]>([]);
   const [publicHolidays, setPublicHolidays] = useState<PublicHoliday[]>([]);
+  const activeGoogleClientId = deploymentGoogleClientId ?? browserGoogleClientId;
+
+  function cachePreferences(overrides: CachedAppPreferences = {}) {
+    setCachedAppPreferences({
+      spreadsheetId,
+      selectedMonth,
+      payCycleStartDay,
+      googleClientId: browserGoogleClientId,
+      ...overrides,
+    });
+  }
 
   function handleMonthChange(month: string) {
     setSelectedMonth(month);
 
     if (isMonthKey(month)) {
-      setCachedAppPreferences({
-        ...cachedPreferences,
-        spreadsheetId,
-        selectedMonth: month,
-        payCycleStartDay,
-      });
+      cachePreferences({ selectedMonth: month });
     }
   }
 
   function handleConnectSpreadsheet(nextSpreadsheetId: string) {
     setSpreadsheetId(nextSpreadsheetId);
-    setCachedAppPreferences({
-      spreadsheetId: nextSpreadsheetId,
-      selectedMonth,
-      payCycleStartDay,
-    });
+    cachePreferences({ spreadsheetId: nextSpreadsheetId });
+  }
+
+  function handleSaveGoogleClientId(nextGoogleClientId: string) {
+    const normalizedGoogleClientId = normalizeGoogleClientId(nextGoogleClientId);
+
+    if (!normalizedGoogleClientId) {
+      throw new Error("Enter a valid Google OAuth Client ID.");
+    }
+
+    setBrowserGoogleClientId(normalizedGoogleClientId);
+    cachePreferences({ googleClientId: normalizedGoogleClientId });
+  }
+
+  function handleClearGoogleClientId() {
+    setBrowserGoogleClientId(undefined);
+    cachePreferences({ googleClientId: undefined });
   }
 
   async function handleCreateSpreadsheet() {
-    if (!googleClientId) {
-      throw new Error("Set VITE_GOOGLE_CLIENT_ID before creating an online Google Sheet.");
+    if (!activeGoogleClientId) {
+      throw new Error("Add a Google OAuth Client ID before creating an online Google Sheet.");
     }
 
-    const tokenClient = createGoogleTokenClient({ clientId: googleClientId });
+    const tokenClient = createGoogleTokenClient({ clientId: activeGoogleClientId });
     const accessToken = await tokenClient.requestToken({ prompt: "consent" });
     const sheetsClient = createGoogleSheetsClient({ accessToken });
     const spreadsheet = await sheetsClient.createSpreadsheet(
@@ -115,9 +142,7 @@ export function App({
 
   function handleAddSalaryConfig(input: NewSalaryConfigInput) {
     setPayCycleStartDay(input.payCycleStartDay ?? defaultPayCycleStartDay);
-    setCachedAppPreferences({
-      spreadsheetId,
-      selectedMonth,
+    cachePreferences({
       payCycleStartDay: input.payCycleStartDay ?? defaultPayCycleStartDay,
     });
     setSalaryConfigs((currentConfigs) => [
@@ -298,11 +323,16 @@ export function App({
         <ConfigScreen
           selectedMonth={selectedMonth}
           spreadsheetId={spreadsheetId}
+          googleClientId={browserGoogleClientId}
+          isGoogleOAuthConfigured={Boolean(activeGoogleClientId)}
+          isDeploymentGoogleOAuthConfigured={Boolean(deploymentGoogleClientId)}
           salaryConfigs={salaryConfigs}
           publicHolidays={publicHolidays}
           onAddSalaryConfig={handleAddSalaryConfig}
           onConnectSpreadsheet={handleConnectSpreadsheet}
           onCreateSpreadsheet={handleCreateSpreadsheet}
+          onSaveGoogleClientId={handleSaveGoogleClientId}
+          onClearGoogleClientId={handleClearGoogleClientId}
           onCheckSpreadsheetHealth={handleCheckSpreadsheetHealth}
           onImportPublicHolidays={handleImportPublicHolidays}
           onAddPublicHoliday={handleAddPublicHoliday}

@@ -35,3 +35,8 @@ VITE_GOOGLE_CLIENT_ID=your-google-oauth-client-id
 ```
 
 Do not commit `.env.local`.
+
+For GitHub Pages, add a repository variable named `VITE_GOOGLE_CLIENT_ID`.
+This is a public Google OAuth browser client ID, not a client secret. Restrict
+the OAuth client in Google Cloud to the Pages origin, for example
+`https://fchoo.github.io`, and keep client secrets out of this static app.

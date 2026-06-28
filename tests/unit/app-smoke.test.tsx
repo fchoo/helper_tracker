@@ -53,7 +53,7 @@ describe("App", () => {
 
     render(
       <App
-        googleClientId="client_123"
+        googleClientId="1234567890-valid.apps.googleusercontent.com"
         createGoogleTokenClient={createGoogleTokenClient}
         createGoogleSheetsClient={createGoogleSheetsClient}
       />,
@@ -63,7 +63,9 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Create new sheet" }));
 
     expect(createGoogleTokenClient).toHaveBeenCalledWith(
-      expect.objectContaining({ clientId: "client_123" }),
+      expect.objectContaining({
+        clientId: "1234567890-valid.apps.googleusercontent.com",
+      }),
     );
     expect(requestToken).toHaveBeenCalledWith({ prompt: "consent" });
     expect(createGoogleSheetsClient).toHaveBeenCalledWith({
@@ -79,6 +81,39 @@ describe("App", () => {
             properties: expect.objectContaining({ title: "Config" }),
           }),
         ]),
+      }),
+    );
+    expect(await screen.findByText("Connected to sheet_online")).toBeInTheDocument();
+  });
+
+  it("lets the user add a browser-local OAuth client id before creating a sheet", async () => {
+    const user = userEvent.setup();
+    const requestToken = vi.fn().mockResolvedValue("token_123");
+    const createGoogleTokenClient = vi.fn().mockReturnValue({ requestToken });
+    const createSpreadsheet = vi.fn().mockResolvedValue({ spreadsheetId: "sheet_online" });
+    const createGoogleSheetsClient = vi.fn().mockReturnValue({ createSpreadsheet });
+
+    render(
+      <App
+        createGoogleTokenClient={createGoogleTokenClient}
+        createGoogleSheetsClient={createGoogleSheetsClient}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Config" }));
+
+    expect(screen.getByRole("button", { name: "Create new sheet" })).toBeDisabled();
+
+    await user.type(
+      screen.getByLabelText("OAuth Client ID"),
+      "1234567890-local.apps.googleusercontent.com",
+    );
+    await user.click(screen.getByRole("button", { name: "Save OAuth ID" }));
+    await user.click(screen.getByRole("button", { name: "Create new sheet" }));
+
+    expect(createGoogleTokenClient).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clientId: "1234567890-local.apps.googleusercontent.com",
       }),
     );
     expect(await screen.findByText("Connected to sheet_online")).toBeInTheDocument();
