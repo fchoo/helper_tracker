@@ -416,7 +416,10 @@ function AdvanceHistory({
   });
 
   return (
-    <section aria-labelledby="advance-history-title" className="history-panel">
+    <section
+      aria-labelledby="advance-history-title"
+      className="panel-section history-panel"
+    >
       <div className="panel-header">
         <h3 id="advance-history-title">Advance history</h3>
         <label className="compact-filter">

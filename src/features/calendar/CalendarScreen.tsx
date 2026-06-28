@@ -80,14 +80,20 @@ export function CalendarScreen({
         />
       </section>
       <div className="calendar-workspace">
-        <section aria-labelledby="time-record-list-title" className="history-panel">
+        <section
+          aria-labelledby="time-record-list-title"
+          className="panel-section history-panel"
+        >
           <TimeRecordList
             selectedMonth={selectedMonth}
             timeRecords={timeRecords}
             onEditTimeRecord={onUpdateTimeRecord ? openEditDialog : undefined}
           />
         </section>
-        <section aria-labelledby="month-board-title" className="month-board">
+        <section
+          aria-labelledby="month-board-title"
+          className="panel-section month-board"
+        >
           <div className="panel-header">
             <h3 id="month-board-title">Month view</h3>
           </div>

@@ -274,8 +274,7 @@ small {
   min-width: 0;
 }
 
-.screen,
-.calendar-panel {
+.screen {
   display: grid;
   gap: var(--space-5);
 }
@@ -299,7 +298,7 @@ small {
 }
 
 .stack-form,
-.setup-panel {
+.panel-section {
   display: grid;
   gap: var(--space-4);
   border: 1px solid var(--border);
@@ -313,11 +312,21 @@ small {
   max-width: 720px;
 }
 
+.panel-section {
+  max-width: none;
+}
+
+.panel-section > .stack-form {
+  max-width: none;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
 .stack-form:focus-within,
-.setup-panel:focus-within,
-.history-panel:focus-within,
-.breakdown-panel:focus-within,
-.month-board:focus-within {
+.panel-section:focus-within,
+.pay-panel:focus-within {
   border-color: var(--border-strong);
   box-shadow: var(--shadow-md);
 }
@@ -682,10 +691,7 @@ small {
 }
 
 .pay-panel,
-.breakdown-panel,
-.history-panel,
-.calendar-tools,
-.month-board {
+.calendar-tools {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
@@ -741,13 +747,6 @@ small {
 .pay-panel dd {
   color: var(--text);
   font-weight: 750;
-}
-
-.breakdown-panel,
-.history-panel,
-.month-board {
-  display: grid;
-  gap: var(--space-4);
 }
 
 .line-items > div,
@@ -1009,18 +1008,6 @@ small {
   min-height: 58px;
 }
 
-section[aria-labelledby="included-advances-title"],
-section[aria-labelledby="included-time-title"],
-.salary-history-panel {
-  display: grid;
-  gap: var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-  padding: var(--space-4);
-}
-
 .config-layout {
   display: grid;
   gap: var(--space-5);
@@ -1038,7 +1025,7 @@ section[aria-labelledby="included-time-title"],
 }
 
 .history-panel > p,
-.calendar-panel > p,
+.panel-section > p,
 .screen > section > p,
 .screen > p {
   border-radius: var(--radius);
@@ -1105,11 +1092,6 @@ section[aria-labelledby="included-time-title"],
     grid-column: span 2;
   }
 
-  .config-layout {
-    grid-template-columns: minmax(320px, 0.8fr) minmax(0, 1fr);
-    align-items: start;
-  }
-
   .pay-panel {
     grid-template-columns: minmax(240px, 0.8fr) minmax(0, 1fr);
     align-items: center;
@@ -1136,11 +1118,9 @@ section[aria-labelledby="included-time-title"],
 
   .app-header,
   .stack-form,
-  .setup-panel,
+  .panel-section,
   .pay-panel,
-  .breakdown-panel,
-  .history-panel,
-  .month-board {
+  .calendar-tools {
     padding: var(--space-3);
   }
 

@@ -40,11 +40,21 @@ export function TimeRecordsScreen({
         <p>Worked Sundays: {counts.sundayOtDays}</p>
         <p>Extra unpaid days off: {counts.unpaidOffDays}</p>
       </header>
-      <TimeRecordForm
-        publicHolidayDates={publicHolidayDates}
-        onSubmit={onAddTimeRecord}
-      />
-      <TimeRecordList timeRecords={timeRecords} />
+      <section aria-labelledby="time-record-form-title" className="panel-section">
+        <div className="panel-header">
+          <h3 id="time-record-form-title">New time record</h3>
+        </div>
+        <TimeRecordForm
+          publicHolidayDates={publicHolidayDates}
+          onSubmit={onAddTimeRecord}
+        />
+      </section>
+      <section aria-labelledby="time-record-history-title" className="panel-section">
+        <div className="panel-header">
+          <h3 id="time-record-history-title">Time record history</h3>
+        </div>
+        <TimeRecordList timeRecords={timeRecords} />
+      </section>
     </section>
   );
 }
@@ -129,48 +139,50 @@ function TimeRecordForm({
       <p>{dayContext}</p>
       <fieldset className="field-group">
         <legend>What happened?</legend>
-        <label className="choice-row">
-          <input
-            type="radio"
-            name="day-entry-action"
-            value="WORKED"
-            checked={action === "WORKED"}
-            onChange={() => setAction("WORKED")}
-          />
-          Worked
-        </label>
-        <label className="choice-row">
-          <input
-            type="radio"
-            name="day-entry-action"
-            value="RESTED"
-            checked={action === "RESTED"}
-            onChange={() => setAction("RESTED")}
-          />
-          Rested / off day
-        </label>
-        <label>
-          <input
-            type="radio"
-            name="day-entry-action"
-            value="UNPAID_OFF"
-            checked={action === "UNPAID_OFF"}
-            onChange={() => setAction("UNPAID_OFF")}
-          />
-          Extra unpaid day off
-        </label>
-        {isPublicHoliday && !isSunday ? (
-          <label className="choice-row">
+        <div className="choice-card-grid day-action-grid">
+          <label className="choice-card">
             <input
               type="radio"
               name="day-entry-action"
-              value="EXTRA_PH_PAY"
-              checked={action === "EXTRA_PH_PAY"}
-              onChange={() => setAction("EXTRA_PH_PAY")}
+              value="WORKED"
+              checked={action === "WORKED"}
+              onChange={() => setAction("WORKED")}
             />
-            Pay extra for PH work
+            <span>Worked</span>
           </label>
-        ) : null}
+          <label className="choice-card">
+            <input
+              type="radio"
+              name="day-entry-action"
+              value="RESTED"
+              checked={action === "RESTED"}
+              onChange={() => setAction("RESTED")}
+            />
+            <span>Rested / off day</span>
+          </label>
+          <label className="choice-card">
+            <input
+              type="radio"
+              name="day-entry-action"
+              value="UNPAID_OFF"
+              checked={action === "UNPAID_OFF"}
+              onChange={() => setAction("UNPAID_OFF")}
+            />
+            <span>Extra unpaid day off</span>
+          </label>
+          {isPublicHoliday && !isSunday ? (
+            <label className="choice-card">
+              <input
+                type="radio"
+                name="day-entry-action"
+                value="EXTRA_PH_PAY"
+                checked={action === "EXTRA_PH_PAY"}
+                onChange={() => setAction("EXTRA_PH_PAY")}
+              />
+              <span>Pay extra for PH work</span>
+            </label>
+          ) : null}
+        </div>
       </fieldset>
       <label>
         Notes

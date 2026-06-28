@@ -144,7 +144,10 @@ export function PublicHolidayPanel({
   }
 
   return (
-    <section aria-labelledby="public-holidays-title" className="calendar-panel">
+    <section
+      aria-labelledby="public-holidays-title"
+      className="panel-section public-holiday-panel"
+    >
       <div className="panel-header">
         <div>
           <h3 id="public-holidays-title">Public holidays</h3>

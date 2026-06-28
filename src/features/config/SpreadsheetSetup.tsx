@@ -78,11 +78,11 @@ export function SpreadsheetSetup({
   return (
     <section
       aria-labelledby="spreadsheet-setup-title"
-      className="setup-panel spreadsheet-setup-panel"
+      className="panel-section setup-panel spreadsheet-setup-panel"
     >
-      <div className="setup-panel-header">
+      <div className="panel-header setup-panel-header">
         <div>
-          <h2 id="spreadsheet-setup-title">Google Sheet setup</h2>
+          <h3 id="spreadsheet-setup-title">Google Sheet setup</h3>
           <p>Connect the payroll workbook and confirm the required tabs are ready.</p>
         </div>
         <span className={`status-pill status-${displayedHealthCheck.status}`}>

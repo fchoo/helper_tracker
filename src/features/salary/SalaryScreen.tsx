@@ -115,7 +115,10 @@ export function SalaryScreen({
           value={formatSgd(summary.totalAdvanceDeductions)}
         />
       </section>
-      <section aria-labelledby="salary-breakdown-title" className="breakdown-panel">
+      <section
+        aria-labelledby="salary-breakdown-title"
+        className="panel-section breakdown-panel"
+      >
         <h3 id="salary-breakdown-title">Payout breakdown</h3>
         <dl className="line-items">
           <LineItem label="Base monthly salary" value={summary.baseSalary} />
@@ -131,7 +134,7 @@ export function SalaryScreen({
       </section>
       <section
         aria-labelledby="salary-plan-history-title"
-        className="salary-history-panel"
+        className="panel-section salary-history-panel"
       >
         <div className="panel-header">
           <div>
@@ -145,7 +148,7 @@ export function SalaryScreen({
           emptyMessage="No salary plans saved yet. Add one in Config before payroll review."
         />
       </section>
-      <section aria-labelledby="included-advances-title">
+      <section aria-labelledby="included-advances-title" className="panel-section">
         <h3 id="included-advances-title">Advance deductions this month</h3>
         {includedAdvances.length ? (
           <ul className="record-list">
@@ -168,7 +171,7 @@ export function SalaryScreen({
           <p>No advances deducted this month.</p>
         )}
       </section>
-      <section aria-labelledby="included-time-title">
+      <section aria-labelledby="included-time-title" className="panel-section">
         <h3 id="included-time-title">Included time records</h3>
         {includedTimeRecords.length ? (
           <ul className="record-list">

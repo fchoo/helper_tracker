@@ -59,7 +59,15 @@ export function ConfigScreen({
         />
       ) : null}
       <div className="config-layout">
-        <SalaryConfigForm onSubmit={onAddSalaryConfig} />
+        <section aria-labelledby="salary-config-title" className="panel-section">
+          <div className="panel-header">
+            <div>
+              <h3 id="salary-config-title">Salary plan</h3>
+              <p>Set the current monthly salary and payroll calculation settings.</p>
+            </div>
+          </div>
+          <SalaryConfigForm onSubmit={onAddSalaryConfig} />
+        </section>
         <SalaryConfigList salaryConfigs={salaryConfigs} />
         <PublicHolidayPanel
           holidays={publicHolidays}
@@ -169,7 +177,10 @@ function SalaryConfigList({
   salaryConfigs: SalaryConfig[];
 }) {
   return (
-    <section aria-labelledby="salary-history-title" className="salary-history-panel">
+    <section
+      aria-labelledby="salary-history-title"
+      className="panel-section salary-history-panel"
+    >
       <div className="panel-header">
         <div>
           <h3 id="salary-history-title">Salary plan history</h3>
