@@ -98,6 +98,26 @@ describe("SpreadsheetSetup", () => {
     expect(onCreate).toHaveBeenCalledTimes(1);
   });
 
+  it("shows progress while Google Sheet creation is in flight", async () => {
+    const onCreate = vi.fn(
+      () => new Promise<void>((resolve) => setTimeout(resolve, 50)),
+    );
+
+    render(
+      <SpreadsheetSetup
+        isGoogleOAuthConfigured
+        onConnect={vi.fn()}
+        onCreate={onCreate}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Create new sheet" }));
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Waiting for Google sign-in...",
+    );
+  });
+
   it("shows a creation error when Google Sheet creation fails", async () => {
     const onCreate = vi.fn().mockRejectedValue(new Error("Google OAuth is not configured."));
 

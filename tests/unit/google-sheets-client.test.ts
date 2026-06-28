@@ -174,6 +174,30 @@ describe("createGoogleTokenClient", () => {
     );
     expect(requestAccessToken).toHaveBeenCalledWith({ prompt: "" });
   });
+
+  it("rejects when Google cannot open the sign-in popup", async () => {
+    let errorCallback: ((error: { type: string }) => void) | undefined;
+    const requestAccessToken = vi.fn(() => {
+      errorCallback?.({ type: "popup_failed_to_open" });
+    });
+    const initTokenClient = vi.fn((config) => {
+      errorCallback = config.error_callback;
+      return { requestAccessToken };
+    });
+
+    const tokenClient = createGoogleTokenClient({
+      clientId: "client_123",
+      googleAccounts: {
+        oauth2: {
+          initTokenClient,
+        },
+      },
+    });
+
+    await expect(tokenClient.requestToken()).rejects.toThrow(
+      "Google sign-in popup was blocked. Allow popups and try again.",
+    );
+  });
 });
 
 function jsonResponse(body: unknown): Response {

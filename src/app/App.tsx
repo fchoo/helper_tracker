@@ -35,13 +35,20 @@ import {
   type AppGoogleTokenClient,
 } from "../integrations/google/auth";
 import { GoogleSheetsClient } from "../integrations/google/sheetsClient";
-import { buildSpreadsheetCreateBody } from "../integrations/google/spreadsheetSchema";
+import {
+  buildEnsureSchemaRequests,
+  buildSpreadsheetCreateBody,
+  type SpreadsheetMetadata,
+} from "../integrations/google/spreadsheetSchema";
 import { appRoutes, type AppRouteId } from "./routes";
 
 const fallbackMonth = new Date().toISOString().slice(0, 7);
 const defaultPayCycleStartDay = 1;
 
-type GoogleSheetsCreateClient = Pick<GoogleSheetsClient, "createSpreadsheet">;
+type GoogleSheetsCreateClient = Pick<
+  GoogleSheetsClient,
+  "batchUpdate" | "createSpreadsheet" | "getSpreadsheet"
+>;
 
 export type AppProps = {
   googleClientId?: string;
@@ -139,6 +146,14 @@ export function App({
       ),
     );
     const nextSpreadsheetId = readCreatedSpreadsheetId(spreadsheet);
+    const spreadsheetMetadata = hasSheetMetadata(spreadsheet)
+      ? spreadsheet
+      : readSpreadsheetMetadata(await sheetsClient.getSpreadsheet(nextSpreadsheetId));
+    const schemaRequests = buildEnsureSchemaRequests(spreadsheetMetadata);
+
+    if (schemaRequests.length > 0) {
+      await sheetsClient.batchUpdate(nextSpreadsheetId, schemaRequests);
+    }
 
     handleConnectSpreadsheet(nextSpreadsheetId);
   }
@@ -379,6 +394,23 @@ function readCreatedSpreadsheetId(spreadsheet: unknown): string {
   }
 
   throw new Error("Google Sheets did not return a spreadsheet ID.");
+}
+
+function hasSheetMetadata(spreadsheet: unknown): spreadsheet is SpreadsheetMetadata {
+  return (
+    typeof spreadsheet === "object" &&
+    spreadsheet !== null &&
+    "sheets" in spreadsheet &&
+    Array.isArray(spreadsheet.sheets)
+  );
+}
+
+function readSpreadsheetMetadata(spreadsheet: unknown): SpreadsheetMetadata {
+  if (hasSheetMetadata(spreadsheet)) {
+    return spreadsheet;
+  }
+
+  throw new Error("Google Sheets did not return sheet metadata.");
 }
 
 function mergePublicHolidays(

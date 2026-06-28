@@ -49,7 +49,22 @@ describe("App", () => {
     const requestToken = vi.fn().mockResolvedValue("token_123");
     const createGoogleTokenClient = vi.fn().mockReturnValue({ requestToken });
     const createSpreadsheet = vi.fn().mockResolvedValue({ spreadsheetId: "sheet_online" });
-    const createGoogleSheetsClient = vi.fn().mockReturnValue({ createSpreadsheet });
+    const getSpreadsheet = vi.fn().mockResolvedValue({
+      sheets: [
+        { properties: { title: "Config", sheetId: 1 } },
+        { properties: { title: "Advances", sheetId: 2 } },
+        { properties: { title: "Advance_Deductions", sheetId: 3 } },
+        { properties: { title: "Time_Records", sheetId: 4 } },
+        { properties: { title: "Public_Holidays", sheetId: 5 } },
+        { properties: { title: "Monthly_Summary", sheetId: 6 } },
+      ],
+    });
+    const batchUpdate = vi.fn().mockResolvedValue({ replies: [] });
+    const createGoogleSheetsClient = vi.fn().mockReturnValue({
+      batchUpdate,
+      createSpreadsheet,
+      getSpreadsheet,
+    });
 
     render(
       <App
@@ -83,6 +98,18 @@ describe("App", () => {
         ]),
       }),
     );
+    expect(createSpreadsheet.mock.calls[0][0].sheets[0]).not.toHaveProperty("data");
+    expect(getSpreadsheet).toHaveBeenCalledWith("sheet_online");
+    expect(batchUpdate).toHaveBeenCalledWith(
+      "sheet_online",
+      expect.arrayContaining([
+        expect.objectContaining({
+          updateCells: expect.objectContaining({
+            range: expect.objectContaining({ sheetId: 1 }),
+          }),
+        }),
+      ]),
+    );
     expect(await screen.findByText("Connected to sheet_online")).toBeInTheDocument();
   });
 
@@ -93,7 +120,11 @@ describe("App", () => {
     const createSpreadsheet = vi.fn().mockResolvedValue({
       spreadsheetId: "local_c4495524-5185-423e-92ac-62ddb0a5f275",
     });
-    const createGoogleSheetsClient = vi.fn().mockReturnValue({ createSpreadsheet });
+    const createGoogleSheetsClient = vi.fn().mockReturnValue({
+      batchUpdate: vi.fn(),
+      createSpreadsheet,
+      getSpreadsheet: vi.fn(),
+    });
 
     render(
       <App
@@ -117,7 +148,20 @@ describe("App", () => {
     const requestToken = vi.fn().mockResolvedValue("token_123");
     const createGoogleTokenClient = vi.fn().mockReturnValue({ requestToken });
     const createSpreadsheet = vi.fn().mockResolvedValue({ spreadsheetId: "sheet_online" });
-    const createGoogleSheetsClient = vi.fn().mockReturnValue({ createSpreadsheet });
+    const createGoogleSheetsClient = vi.fn().mockReturnValue({
+      batchUpdate: vi.fn().mockResolvedValue({ replies: [] }),
+      createSpreadsheet,
+      getSpreadsheet: vi.fn().mockResolvedValue({
+        sheets: [
+          { properties: { title: "Config", sheetId: 1 } },
+          { properties: { title: "Advances", sheetId: 2 } },
+          { properties: { title: "Advance_Deductions", sheetId: 3 } },
+          { properties: { title: "Time_Records", sheetId: 4 } },
+          { properties: { title: "Public_Holidays", sheetId: 5 } },
+          { properties: { title: "Monthly_Summary", sheetId: 6 } },
+        ],
+      }),
+    });
 
     render(
       <App

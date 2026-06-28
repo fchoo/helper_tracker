@@ -24,15 +24,6 @@ export type SpreadsheetCreateSheet = {
   properties: {
     title: string;
   };
-  data: Array<{
-    rowData: Array<{
-      values: Array<{
-        userEnteredValue: {
-          stringValue: string;
-        };
-      }>;
-    }>;
-  }>;
 };
 
 export type SpreadsheetCreateBody = {
@@ -138,23 +129,10 @@ export function buildSpreadsheetCreateBody(title: string): SpreadsheetCreateBody
     properties: {
       title,
     },
-    sheets: Object.entries(requiredSheetSchemas).map(([sheetName, headers]) => ({
+    sheets: Object.keys(requiredSheetSchemas).map((sheetName) => ({
       properties: {
         title: sheetName,
       },
-      data: [
-        {
-          rowData: [
-            {
-              values: headers.map((header) => ({
-                userEnteredValue: {
-                  stringValue: header,
-                },
-              })),
-            },
-          ],
-        },
-      ],
     })),
   };
 }

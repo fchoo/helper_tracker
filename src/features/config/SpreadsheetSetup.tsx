@@ -39,6 +39,7 @@ export function SpreadsheetSetup({
   const [healthCheck, setHealthCheck] = useState<SpreadsheetHealthCheck>();
   const [isCheckingHealth, setIsCheckingHealth] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [createStatus, setCreateStatus] = useState("");
   const canCreateSpreadsheet = isGoogleOAuthConfigured ?? true;
   const connectedSpreadsheetId = normalizeGoogleSpreadsheetId(spreadsheetId);
   const displayedHealthCheck =
@@ -79,6 +80,7 @@ export function SpreadsheetSetup({
     }
 
     setError("");
+    setCreateStatus("");
     await onConnect(normalizedSpreadsheetId);
     setHealthCheck(buildUncheckedSpreadsheetHealth(normalizedSpreadsheetId));
     setInputSpreadsheetId("");
@@ -86,6 +88,7 @@ export function SpreadsheetSetup({
 
   async function handleCreate() {
     setError("");
+    setCreateStatus("");
 
     if (!canCreateSpreadsheet) {
       setError("Add a Google OAuth Client ID before creating an online Google Sheet.");
@@ -94,8 +97,11 @@ export function SpreadsheetSetup({
 
     try {
       setIsCreating(true);
+      setCreateStatus("Waiting for Google sign-in...");
       await onCreate();
+      setCreateStatus("Google Sheet connected.");
     } catch (createError) {
+      setCreateStatus("");
       setError(
         createError instanceof Error
           ? createError.message
@@ -253,6 +259,7 @@ export function SpreadsheetSetup({
       </div>
 
       {error ? <p role="alert">{error}</p> : null}
+      {createStatus ? <p role="status">{createStatus}</p> : null}
     </section>
   );
 }

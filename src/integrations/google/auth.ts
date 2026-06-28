@@ -10,6 +10,7 @@ type GoogleTokenClientConfig = {
   client_id: string;
   scope: string;
   callback: (response: GoogleTokenResponse) => void;
+  error_callback?: (error: { type?: string }) => void;
 };
 
 type GoogleTokenClient = {
@@ -60,14 +61,25 @@ export function createGoogleTokenClient({
     client_id: clientId,
     scope,
     callback: (response) => {
+      const resolveCurrentToken = resolveToken;
+      const rejectCurrentToken = rejectToken;
+      resolveToken = undefined;
+      rejectToken = undefined;
+
       if (response.error || !response.access_token) {
-        rejectToken?.(
+        rejectCurrentToken?.(
           new Error(response.error || "Google did not return an access token."),
         );
         return;
       }
 
-      resolveToken?.(response.access_token);
+      resolveCurrentToken?.(response.access_token);
+    },
+    error_callback: (error) => {
+      const rejectCurrentToken = rejectToken;
+      resolveToken = undefined;
+      rejectToken = undefined;
+      rejectCurrentToken?.(buildGoogleTokenError(error.type));
     },
   });
 
@@ -79,4 +91,16 @@ export function createGoogleTokenClient({
         tokenClient.requestAccessToken(options);
       }),
   };
+}
+
+function buildGoogleTokenError(type?: string): Error {
+  if (type === "popup_failed_to_open") {
+    return new Error("Google sign-in popup was blocked. Allow popups and try again.");
+  }
+
+  if (type === "popup_closed") {
+    return new Error("Google sign-in was closed before authorization finished.");
+  }
+
+  return new Error("Google sign-in could not finish. Try again.");
 }

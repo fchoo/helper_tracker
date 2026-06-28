@@ -56,7 +56,7 @@ describe("spreadsheet schema", () => {
     expect(requests.some((request) => "addSheet" in request && request.addSheet.properties.title === "Advances")).toBe(true);
   });
 
-  it("builds a spreadsheet create body with required tabs and header rows", () => {
+  it("builds a spreadsheet create body with required tabs only", () => {
     const body = buildSpreadsheetCreateBody("Domestic Helper Tracker");
 
     expect(body.properties.title).toBe("Domestic Helper Tracker");
@@ -64,24 +64,10 @@ describe("spreadsheet schema", () => {
       expect.arrayContaining([
         expect.objectContaining({
           properties: { title: "Config" },
-          data: [
-            expect.objectContaining({
-              rowData: [
-                expect.objectContaining({
-                  values: expect.arrayContaining([
-                    {
-                      userEnteredValue: {
-                        stringValue: "pay_cycle_start_day",
-                      },
-                    },
-                  ]),
-                }),
-              ],
-            }),
-          ],
         }),
       ]),
     );
+    expect(body.sheets[0]).not.toHaveProperty("data");
   });
 
   it("builds header update requests for sheets with missing or mismatched headers", () => {
