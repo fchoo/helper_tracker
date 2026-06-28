@@ -14,6 +14,7 @@ describe("domain validation schemas", () => {
       monthlySalary: 900,
       effectiveStartDate: "2026-06-01",
       otDayDivisor: 26,
+      payCycleStartDay: 26,
       defaultSundayOffPolicy: "FIXED_COUNT",
       defaultSundayOffCount: 4,
       notes: "",
@@ -21,6 +22,7 @@ describe("domain validation schemas", () => {
     });
 
     expect(result.monthlySalary).toBe(900);
+    expect(result.payCycleStartDay).toBe(26);
     expect(result.defaultSundayOffCount).toBe(4);
   });
 

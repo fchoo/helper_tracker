@@ -90,6 +90,7 @@ function SalaryConfigForm({
   const [monthlySalary, setMonthlySalary] = useState("");
   const [effectiveStartDate, setEffectiveStartDate] = useState("");
   const [otDayDivisor, setOtDayDivisor] = useState("26");
+  const [payCycleStartDay, setPayCycleStartDay] = useState("1");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
 
@@ -113,11 +114,19 @@ function SalaryConfigForm({
       return;
     }
 
+    const cycleStartDay = Number(payCycleStartDay);
+
+    if (!Number.isInteger(cycleStartDay) || cycleStartDay < 1 || cycleStartDay > 31) {
+      setError("Pay cycle start day must be between 1 and 31.");
+      return;
+    }
+
     setError("");
     await onSubmit({
       monthlySalary: parseMoneyInput(monthlySalary),
       effectiveStartDate,
       otDayDivisor: divisor,
+      payCycleStartDay: cycleStartDay,
       defaultSundayOffPolicy: "ALL_SUNDAYS",
       defaultSundayOffCount: undefined,
       notes: notes.trim(),
@@ -126,6 +135,7 @@ function SalaryConfigForm({
     setMonthlySalary("");
     setEffectiveStartDate("");
     setOtDayDivisor("26");
+    setPayCycleStartDay("1");
     setNotes("");
   }
 
@@ -155,6 +165,14 @@ function SalaryConfigForm({
             inputMode="numeric"
             value={otDayDivisor}
             onChange={(event) => setOtDayDivisor(event.target.value)}
+          />
+        </label>
+        <label>
+          Pay cycle start day
+          <input
+            inputMode="numeric"
+            value={payCycleStartDay}
+            onChange={(event) => setPayCycleStartDay(event.target.value)}
           />
         </label>
       </details>

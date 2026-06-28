@@ -87,4 +87,39 @@ describe("SalaryScreen", () => {
     expect(screen.getAllByText("Worked Sunday").length).toBeGreaterThan(0);
     expect(screen.getByText("Overlapping off day")).toBeInTheDocument();
   });
+
+  it("shows the configured pay cycle range and pay date", () => {
+    render(
+      <SalaryScreen
+        selectedMonth="2026-06"
+        salaryConfigs={[
+          {
+            id: "cfg_1",
+            monthlySalary: 900,
+            effectiveStartDate: "2026-01-01",
+            otDayDivisor: 26,
+            payCycleStartDay: 26,
+            createdAt,
+          },
+        ]}
+        advances={[]}
+        advanceDeductions={[]}
+        timeRecords={[
+          {
+            id: "time_1",
+            type: "SUNDAY_OT",
+            startDate: "2026-07-05",
+            endDate: "2026-07-05",
+            notes: "Inside configured cycle",
+            createdAt,
+          },
+        ]}
+        publicHolidays={[]}
+      />,
+    );
+
+    expect(screen.getByText("Review 2026-06-26 to 2026-07-25")).toBeInTheDocument();
+    expect(screen.getByText("2026-07-26")).toBeInTheDocument();
+    expect(screen.getByText("Inside configured cycle")).toBeInTheDocument();
+  });
 });

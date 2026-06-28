@@ -47,6 +47,29 @@ describe("validateAdvanceDeductionTotals", () => {
 });
 
 describe("calculateMonthlyPayout", () => {
+  it("uses the configured pay cycle range when counting time records and Sundays", () => {
+    const summary = calculateMonthlyPayout({
+      month: "2026-06",
+      payCycleStartDay: 26,
+      salaryConfigs: [config("cfg_1", 900, "2026-01-01", 26)],
+      advances: [],
+      advanceDeductions: [],
+      timeRecords: [
+        timeRecord("before_cycle", "SUNDAY_OT", "2026-06-21", "2026-06-21"),
+        timeRecord("inside_cycle", "SUNDAY_OT", "2026-06-28", "2026-06-28"),
+        timeRecord("overlap_cycle", "OFF_DAY", "2026-06-25", "2026-06-27", false),
+      ],
+      publicHolidays: [],
+    });
+
+    expect(summary.payCycleStartDate).toBe("2026-06-26");
+    expect(summary.payCycleEndDate).toBe("2026-07-25");
+    expect(summary.sundayCount).toBe(4);
+    expect(summary.sundayOtDays).toBe(1);
+    expect(summary.unpaidOffDays).toBe(2);
+    expect(summary.unpaidOffDayDeduction).toBe(69.24);
+  });
+
   it("calculates salary with Sunday work, explicit PH extra pay, unpaid off days, and selected-month deductions", () => {
     const summary = calculateMonthlyPayout({
       month: "2026-06",
@@ -150,12 +173,18 @@ describe("calculateMonthlyPayout", () => {
   });
 });
 
-function config(id: string, monthlySalary: number, effectiveStartDate: string): SalaryConfig {
+function config(
+  id: string,
+  monthlySalary: number,
+  effectiveStartDate: string,
+  payCycleStartDay?: number,
+): SalaryConfig {
   return {
     id,
     monthlySalary,
     effectiveStartDate,
     otDayDivisor: 26,
+    payCycleStartDay,
     createdAt,
   };
 }

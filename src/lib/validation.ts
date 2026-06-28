@@ -20,6 +20,7 @@ export const salaryConfigSchema = z.object({
   monthlySalary: positiveMoneySchema,
   effectiveStartDate: isoDateSchema,
   otDayDivisor: z.number().int().positive(),
+  payCycleStartDay: z.number().int().min(1).max(31).optional(),
   defaultSundayOffPolicy: z.enum(["FIXED_COUNT", "ALL_SUNDAYS"]).optional(),
   defaultSundayOffCount: z.number().int().min(0).max(5).optional(),
   notes: optionalTextSchema,

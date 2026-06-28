@@ -5,6 +5,10 @@ import type { TimeRecord } from "../time-records/types";
 
 export type MonthlySummary = {
   month: string;
+  payCycleStartDate: string;
+  payCycleEndDate: string;
+  payDate: string;
+  payCycleStartDay: number;
   baseSalary: number;
   dailyRate: number;
   sundayCount: number;
@@ -24,6 +28,7 @@ export type MonthlySummary = {
 
 export type MonthlyPayoutInput = {
   month: string;
+  payCycleStartDay?: number;
   salaryConfigs: SalaryConfig[];
   advances: Advance[];
   advanceDeductions: AdvanceDeduction[];

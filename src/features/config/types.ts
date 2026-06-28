@@ -5,6 +5,7 @@ export type SalaryConfig = {
   monthlySalary: number;
   effectiveStartDate: string;
   otDayDivisor: number;
+  payCycleStartDay?: number;
   defaultSundayOffPolicy?: SundayOffPolicy;
   defaultSundayOffCount?: number;
   notes?: string;

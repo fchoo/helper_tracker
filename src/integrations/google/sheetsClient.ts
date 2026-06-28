@@ -18,14 +18,10 @@ export class GoogleSheetsClient {
     this.fetchImpl = fetchImpl;
   }
 
-  createSpreadsheet(title: string): Promise<unknown> {
+  createSpreadsheet(spreadsheet: unknown): Promise<unknown> {
     return this.request(sheetsBaseUrl, {
       method: "POST",
-      body: JSON.stringify({
-        properties: {
-          title,
-        },
-      }),
+      body: JSON.stringify(spreadsheet),
     });
   }
 

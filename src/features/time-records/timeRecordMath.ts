@@ -1,5 +1,7 @@
 import {
+  type DateRange,
   clampDateRangeToMonth,
+  clampDateRangeToRange,
   countInclusiveDays,
   isMonthKey,
 } from "../../lib/dates";
@@ -23,13 +25,29 @@ export function countTimeRecordsForMonth(
     };
   }
 
+  return countTimeRecordsForRange(
+    timeRecords,
+    (record) => clampDateRangeToMonth(record.startDate, record.endDate, month),
+  );
+}
+
+export function countTimeRecordsForDateRange(
+  timeRecords: TimeRecord[],
+  range: DateRange,
+): TimeRecordCounts {
+  return countTimeRecordsForRange(
+    timeRecords,
+    (record) => clampDateRangeToRange(record.startDate, record.endDate, range),
+  );
+}
+
+function countTimeRecordsForRange(
+  timeRecords: TimeRecord[],
+  clampRecord: (record: TimeRecord) => DateRange | null,
+): TimeRecordCounts {
   return timeRecords.reduce<TimeRecordCounts>(
     (counts, record) => {
-      const overlap = clampDateRangeToMonth(
-        record.startDate,
-        record.endDate,
-        month,
-      );
+      const overlap = clampRecord(record);
 
       if (!overlap) {
         return counts;
@@ -68,4 +86,11 @@ export function timeRecordOverlapsMonth(
   }
 
   return clampDateRangeToMonth(record.startDate, record.endDate, month) !== null;
+}
+
+export function timeRecordOverlapsDateRange(
+  record: TimeRecord,
+  range: DateRange,
+): boolean {
+  return clampDateRangeToRange(record.startDate, record.endDate, range) !== null;
 }

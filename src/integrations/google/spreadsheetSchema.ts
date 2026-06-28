@@ -20,6 +20,28 @@ export type SpreadsheetMetadata = {
   sheets?: SpreadsheetSheetMetadata[];
 };
 
+export type SpreadsheetCreateSheet = {
+  properties: {
+    title: string;
+  };
+  data: Array<{
+    rowData: Array<{
+      values: Array<{
+        userEnteredValue: {
+          stringValue: string;
+        };
+      }>;
+    }>;
+  }>;
+};
+
+export type SpreadsheetCreateBody = {
+  properties: {
+    title: string;
+  };
+  sheets: SpreadsheetCreateSheet[];
+};
+
 export type AddSheetRequest = {
   addSheet: {
     properties: {
@@ -56,6 +78,7 @@ const requiredSheetSchemas: RequiredSheetSchemas = {
     "monthly_salary",
     "effective_start_date",
     "ot_day_divisor",
+    "pay_cycle_start_day",
     "default_sunday_off_policy",
     "default_sunday_off_count",
     "notes",
@@ -108,6 +131,32 @@ const requiredSheetSchemas: RequiredSheetSchemas = {
 
 export function getRequiredSheetSchemas(): RequiredSheetSchemas {
   return { ...requiredSheetSchemas };
+}
+
+export function buildSpreadsheetCreateBody(title: string): SpreadsheetCreateBody {
+  return {
+    properties: {
+      title,
+    },
+    sheets: Object.entries(requiredSheetSchemas).map(([sheetName, headers]) => ({
+      properties: {
+        title: sheetName,
+      },
+      data: [
+        {
+          rowData: [
+            {
+              values: headers.map((header) => ({
+                userEnteredValue: {
+                  stringValue: header,
+                },
+              })),
+            },
+          ],
+        },
+      ],
+    })),
+  };
 }
 
 export function normalizeHeaderRow(headers: string[]): string[] {

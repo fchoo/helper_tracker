@@ -30,6 +30,7 @@ export function SalaryPlanHistory({
             <strong>{formatSgd(config.monthlySalary)}</strong>
             <span>Effective {config.effectiveStartDate}</span>
             <span>OT divisor {config.otDayDivisor}</span>
+            <span>Cycle starts day {config.payCycleStartDay ?? 1}</span>
             <span>{formatSundayOffPolicy()}</span>
             {isActive ? <span className="status-pill status-healthy">Active</span> : null}
             {config.notes ? <span className="record-note">{config.notes}</span> : null}

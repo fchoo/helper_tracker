@@ -22,6 +22,7 @@ export function SpreadsheetSetup({
   const [error, setError] = useState("");
   const [healthCheck, setHealthCheck] = useState<SpreadsheetHealthCheck>();
   const [isCheckingHealth, setIsCheckingHealth] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   const displayedHealthCheck =
     healthCheck && healthCheck.spreadsheetId === spreadsheetId
       ? healthCheck
@@ -44,7 +45,19 @@ export function SpreadsheetSetup({
 
   async function handleCreate() {
     setError("");
-    await onCreate();
+
+    try {
+      setIsCreating(true);
+      await onCreate();
+    } catch (createError) {
+      setError(
+        createError instanceof Error
+          ? createError.message
+          : "Could not create Google Sheet.",
+      );
+    } finally {
+      setIsCreating(false);
+    }
   }
 
   async function handleHealthCheck() {
@@ -110,8 +123,13 @@ export function SpreadsheetSetup({
             </label>
             <div className="button-row">
               <button type="submit">Connect sheet</button>
-              <button type="button" className="secondary-button" onClick={handleCreate}>
-                Create new sheet
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={handleCreate}
+                disabled={isCreating}
+              >
+                {isCreating ? "Creating..." : "Create new sheet"}
               </button>
             </div>
           </form>

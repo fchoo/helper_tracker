@@ -4,9 +4,14 @@ import {
   validateAdvanceDeductionTotals as validateScheduleTotals,
 } from "../advances/advanceSchedule";
 import type { SalaryConfig } from "../config/types";
-import { countTimeRecordsForMonth } from "../time-records/timeRecordMath";
+import { countTimeRecordsForDateRange } from "../time-records/timeRecordMath";
 import type { MonthlyPayoutInput, MonthlySummary } from "./types";
-import { getMonthDateRange, isMonthKey } from "../../lib/dates";
+import {
+  type DateRange,
+  getCycleDateRange,
+  isMonthKey,
+  parseValidatedIsoDate,
+} from "../../lib/dates";
 import { roundMoney } from "../../lib/money";
 
 export function selectEffectiveSalaryConfig(
@@ -32,14 +37,22 @@ export function calculateMonthlyPayout(
 ): MonthlySummary {
   validateAdvanceDeductionTotals(input.advances, input.advanceDeductions);
 
+  if (!isMonthKey(input.month)) {
+    return buildEmptyMonthlySummary(input.month);
+  }
+
   const config = selectEffectiveSalaryConfig(input.salaryConfigs, input.month);
   const baseSalary = config?.monthlySalary ?? 0;
   const otDayDivisor = config?.otDayDivisor ?? 26;
+  const payCycleStartDay =
+    input.payCycleStartDay ?? config?.payCycleStartDay ?? 1;
+  const payCycleRange = getCycleDateRange(input.month, payCycleStartDay);
+  const payDate = getNextDay(payCycleRange.endDate);
   const dailyRate = roundMoney(baseSalary / otDayDivisor);
-  const sundayCount = countSundaysInMonth(input.month);
+  const sundayCount = countSundaysInRange(payCycleRange);
   const defaultSundayOffDays = resolveDefaultSundayOffDays(config, sundayCount);
   const extraSundayCount = Math.max(0, sundayCount - defaultSundayOffDays);
-  const counts = countTimeRecordsForMonth(input.timeRecords, input.month);
+  const counts = countTimeRecordsForDateRange(input.timeRecords, payCycleRange);
   const sundayOtAmount = roundMoney(counts.sundayOtDays * dailyRate);
   const publicHolidayWorkAmount = roundMoney(
     counts.publicHolidayWorkDays * dailyRate,
@@ -59,6 +72,10 @@ export function calculateMonthlyPayout(
 
   return {
     month: input.month,
+    payCycleStartDate: payCycleRange.startDate,
+    payCycleEndDate: payCycleRange.endDate,
+    payDate,
+    payCycleStartDay,
     baseSalary,
     dailyRate,
     sundayCount,
@@ -77,6 +94,30 @@ export function calculateMonthlyPayout(
   };
 }
 
+function buildEmptyMonthlySummary(month: string): MonthlySummary {
+  return {
+    month,
+    payCycleStartDate: "Select a month",
+    payCycleEndDate: "Select a month",
+    payDate: "Select a month",
+    payCycleStartDay: 1,
+    baseSalary: 0,
+    dailyRate: 0,
+    sundayCount: 0,
+    defaultSundayOffDays: 0,
+    extraSundayCount: 0,
+    sundayOtDays: 0,
+    publicHolidayWorkDays: 0,
+    unpaidOffDays: 0,
+    sundayOtAmount: 0,
+    publicHolidayWorkAmount: 0,
+    unpaidOffDayDeduction: 0,
+    totalAdvanceDeductions: 0,
+    finalPayout: 0,
+    calculatedAt: new Date().toISOString(),
+  };
+}
+
 function resolveDefaultSundayOffDays(
   _config: SalaryConfig | undefined,
   sundayCount: number,
@@ -84,14 +125,9 @@ function resolveDefaultSundayOffDays(
   return sundayCount;
 }
 
-function countSundaysInMonth(month: string): number {
-  if (!isMonthKey(month)) {
-    return 0;
-  }
-
-  const range = getMonthDateRange(month);
-  const current = new Date(`${range.startDate}T00:00:00.000Z`);
-  const end = new Date(`${range.endDate}T00:00:00.000Z`);
+function countSundaysInRange(range: DateRange): number {
+  const current = parseValidatedIsoDate(range.startDate);
+  const end = parseValidatedIsoDate(range.endDate);
   let count = 0;
 
   while (current <= end) {
@@ -103,4 +139,10 @@ function countSundaysInMonth(month: string): number {
   }
 
   return count;
+}
+
+function getNextDay(date: string): string {
+  const nextDate = parseValidatedIsoDate(date);
+  nextDate.setUTCDate(nextDate.getUTCDate() + 1);
+  return nextDate.toISOString().slice(0, 10);
 }

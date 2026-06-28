@@ -9,9 +9,14 @@ export class SheetsRepository {
   ) {}
 
   async listSalaryConfigs(): Promise<SalaryConfig[]> {
-    const rows = await this.getDataRows("Config!A:H");
+    const rows = await this.getDataRows("Config!A:I");
     return rows.map((row) => {
-      const policy = cellString(row[4]);
+      const possiblePayCycleStartDay = cellNumber(row[4]);
+      const hasPayCycleColumn = possiblePayCycleStartDay >= 1 && possiblePayCycleStartDay <= 31;
+      const policyIndex = hasPayCycleColumn ? 5 : 4;
+      const notesIndex = hasPayCycleColumn ? 7 : 6;
+      const createdAtIndex = hasPayCycleColumn ? 8 : 7;
+      const policy = cellString(row[policyIndex]);
 
       if (policy === "FIXED_COUNT" || policy === "ALL_SUNDAYS") {
         return {
@@ -19,10 +24,11 @@ export class SheetsRepository {
           monthlySalary: cellNumber(row[1]),
           effectiveStartDate: cellString(row[2]),
           otDayDivisor: cellNumber(row[3]),
+          payCycleStartDay: hasPayCycleColumn ? possiblePayCycleStartDay : undefined,
           defaultSundayOffPolicy: "ALL_SUNDAYS",
           defaultSundayOffCount: undefined,
-          notes: cellString(row[6]) || undefined,
-          createdAt: cellString(row[7]),
+          notes: cellString(row[notesIndex]) || undefined,
+          createdAt: cellString(row[createdAtIndex]),
         };
       }
 
@@ -31,6 +37,7 @@ export class SheetsRepository {
         monthlySalary: cellNumber(row[1]),
         effectiveStartDate: cellString(row[2]),
         otDayDivisor: cellNumber(row[3]),
+        payCycleStartDay: undefined,
         defaultSundayOffPolicy: "ALL_SUNDAYS",
         defaultSundayOffCount: undefined,
         notes: cellString(row[4]) || undefined,
@@ -40,12 +47,13 @@ export class SheetsRepository {
   }
 
   addSalaryConfig(config: SalaryConfig): Promise<unknown> {
-    return this.client.appendValues(this.spreadsheetId, "Config!A:H", [
+    return this.client.appendValues(this.spreadsheetId, "Config!A:I", [
       [
         config.id,
         config.monthlySalary,
         config.effectiveStartDate,
         config.otDayDivisor,
+        config.payCycleStartDay ?? 1,
         "ALL_SUNDAYS",
         "",
         config.notes ?? "",

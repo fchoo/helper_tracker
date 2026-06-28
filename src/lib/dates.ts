@@ -41,6 +41,25 @@ export function getMonthDateRange(monthKey: string): DateRange {
   };
 }
 
+export function getCycleDateRange(
+  monthKey: string,
+  startDay: number = 1,
+): DateRange {
+  assertMonthKey(monthKey);
+  assertMonthDay(startDay);
+
+  const [year, month] = monthKey.split("-").map(Number);
+  const startDate = buildClampedMonthDate(year, month, startDay);
+  const nextCycleStartDate = buildClampedMonthDate(year, month + 1, startDay);
+  const endDate = new Date(nextCycleStartDate);
+  endDate.setUTCDate(endDate.getUTCDate() - 1);
+
+  return {
+    startDate: formatIsoDate(startDate),
+    endDate: formatIsoDate(endDate),
+  };
+}
+
 export function countInclusiveDays(startDate: string, endDate: string): number {
   const start = parseValidatedIsoDate(startDate);
   const end = parseValidatedIsoDate(endDate);
@@ -58,18 +77,29 @@ export function clampDateRangeToMonth(
   endDate: string,
   monthKey: string,
 ): DateRange | null {
+  return clampDateRangeToRange(startDate, endDate, getMonthDateRange(monthKey));
+}
+
+export function clampDateRangeToRange(
+  startDate: string,
+  endDate: string,
+  range: DateRange,
+): DateRange | null {
   const start = parseValidatedIsoDate(startDate);
   const end = parseValidatedIsoDate(endDate);
-  const monthRange = getMonthDateRange(monthKey);
-  const monthStart = parseIsoDate(monthRange.startDate);
-  const monthEnd = parseIsoDate(monthRange.endDate);
+  const rangeStart = parseValidatedIsoDate(range.startDate);
+  const rangeEnd = parseValidatedIsoDate(range.endDate);
 
   if (end < start) {
     throw new Error("End date must be on or after start date.");
   }
 
-  const clampedStart = start > monthStart ? start : monthStart;
-  const clampedEnd = end < monthEnd ? end : monthEnd;
+  if (rangeEnd < rangeStart) {
+    throw new Error("Range end date must be on or after range start date.");
+  }
+
+  const clampedStart = start > rangeStart ? start : rangeStart;
+  const clampedEnd = end < rangeEnd ? end : rangeEnd;
 
   if (clampedEnd < clampedStart) {
     return null;
@@ -111,4 +141,15 @@ function parseIsoDate(value: string): Date {
 
 function formatIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
+}
+
+function assertMonthDay(value: number): void {
+  if (!Number.isInteger(value) || value < 1 || value > 31) {
+    throw new Error("Pay cycle start day must be between 1 and 31.");
+  }
+}
+
+function buildClampedMonthDate(year: number, month: number, day: number): Date {
+  const lastDayOfMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return new Date(Date.UTC(year, month - 1, Math.min(day, lastDayOfMonth)));
 }

@@ -3,6 +3,7 @@ import { isMonthKey } from "../lib/dates";
 export type CachedAppPreferences = {
   spreadsheetId?: string;
   selectedMonth?: string;
+  payCycleStartDay?: number;
 };
 
 const cacheKey = "helper-tracker:preferences";
@@ -30,5 +31,12 @@ function sanitizePreferences(
     ...(preferences.selectedMonth && isMonthKey(preferences.selectedMonth)
       ? { selectedMonth: preferences.selectedMonth }
       : {}),
+    ...(isPayCycleStartDay(preferences.payCycleStartDay)
+      ? { payCycleStartDay: preferences.payCycleStartDay }
+      : {}),
   };
+}
+
+function isPayCycleStartDay(value: unknown): value is number {
+  return Number.isInteger(value) && Number(value) >= 1 && Number(value) <= 31;
 }

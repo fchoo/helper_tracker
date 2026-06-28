@@ -13,11 +13,13 @@ describe("cacheDb", () => {
     setCachedAppPreferences({
       spreadsheetId: "sheet_123",
       selectedMonth: "2026-06",
+      payCycleStartDay: 26,
     });
 
     expect(getCachedAppPreferences()).toEqual({
       spreadsheetId: "sheet_123",
       selectedMonth: "2026-06",
+      payCycleStartDay: 26,
     });
   });
 

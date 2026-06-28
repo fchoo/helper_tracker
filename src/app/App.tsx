@@ -24,16 +24,42 @@ import type { TimeRecord } from "../features/time-records/types";
 import { isMonthKey } from "../lib/dates";
 import { getCachedAppPreferences, setCachedAppPreferences } from "../persistence/cacheDb";
 import { fetchSingaporePublicHolidays } from "../integrations/singapore/publicHolidays";
+import {
+  createGoogleTokenClient as createDefaultGoogleTokenClient,
+  type AppGoogleTokenClient,
+} from "../integrations/google/auth";
+import { GoogleSheetsClient } from "../integrations/google/sheetsClient";
+import { buildSpreadsheetCreateBody } from "../integrations/google/spreadsheetSchema";
 import { appRoutes, type AppRouteId } from "./routes";
 
 const fallbackMonth = new Date().toISOString().slice(0, 7);
+const defaultPayCycleStartDay = 1;
 
-export function App() {
+type GoogleSheetsCreateClient = Pick<GoogleSheetsClient, "createSpreadsheet">;
+
+export type AppProps = {
+  googleClientId?: string;
+  createGoogleTokenClient?: (options: {
+    clientId: string;
+  }) => AppGoogleTokenClient;
+  createGoogleSheetsClient?: (options: {
+    accessToken: string;
+  }) => GoogleSheetsCreateClient;
+};
+
+export function App({
+  googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID,
+  createGoogleTokenClient = createDefaultGoogleTokenClient,
+  createGoogleSheetsClient = (options) => new GoogleSheetsClient(options),
+}: AppProps = {}) {
   const cachedPreferences = useMemo(() => getCachedAppPreferences(), []);
   const [activeRoute, setActiveRoute] = useState<AppRouteId>("salary");
   const [spreadsheetId, setSpreadsheetId] = useState(cachedPreferences.spreadsheetId);
   const [selectedMonth, setSelectedMonth] = useState(
     cachedPreferences.selectedMonth ?? fallbackMonth,
+  );
+  const [payCycleStartDay, setPayCycleStartDay] = useState(
+    cachedPreferences.payCycleStartDay ?? defaultPayCycleStartDay,
   );
   const [salaryConfigs, setSalaryConfigs] = useState<SalaryConfig[]>([]);
   const [advances, setAdvances] = useState<Advance[]>([]);
@@ -51,6 +77,7 @@ export function App() {
         ...cachedPreferences,
         spreadsheetId,
         selectedMonth: month,
+        payCycleStartDay,
       });
     }
   }
@@ -60,11 +87,26 @@ export function App() {
     setCachedAppPreferences({
       spreadsheetId: nextSpreadsheetId,
       selectedMonth,
+      payCycleStartDay,
     });
   }
 
-  function handleCreateSpreadsheet() {
-    handleConnectSpreadsheet(`local_${crypto.randomUUID()}`);
+  async function handleCreateSpreadsheet() {
+    if (!googleClientId) {
+      throw new Error("Set VITE_GOOGLE_CLIENT_ID before creating an online Google Sheet.");
+    }
+
+    const tokenClient = createGoogleTokenClient({ clientId: googleClientId });
+    const accessToken = await tokenClient.requestToken({ prompt: "consent" });
+    const sheetsClient = createGoogleSheetsClient({ accessToken });
+    const spreadsheet = await sheetsClient.createSpreadsheet(
+      buildSpreadsheetCreateBody(
+        `Domestic Helper Tracker ${new Date().toISOString().slice(0, 10)}`,
+      ),
+    );
+    const nextSpreadsheetId = readCreatedSpreadsheetId(spreadsheet);
+
+    handleConnectSpreadsheet(nextSpreadsheetId);
   }
 
   function handleCheckSpreadsheetHealth(targetSpreadsheetId: string) {
@@ -72,6 +114,12 @@ export function App() {
   }
 
   function handleAddSalaryConfig(input: NewSalaryConfigInput) {
+    setPayCycleStartDay(input.payCycleStartDay ?? defaultPayCycleStartDay);
+    setCachedAppPreferences({
+      spreadsheetId,
+      selectedMonth,
+      payCycleStartDay: input.payCycleStartDay ?? defaultPayCycleStartDay,
+    });
     setSalaryConfigs((currentConfigs) => [
       ...currentConfigs,
       {
@@ -275,6 +323,20 @@ export function App() {
       />
     );
   }
+}
+
+function readCreatedSpreadsheetId(spreadsheet: unknown): string {
+  if (
+    typeof spreadsheet === "object" &&
+    spreadsheet !== null &&
+    "spreadsheetId" in spreadsheet &&
+    typeof spreadsheet.spreadsheetId === "string" &&
+    spreadsheet.spreadsheetId
+  ) {
+    return spreadsheet.spreadsheetId;
+  }
+
+  throw new Error("Google Sheets did not return a spreadsheet ID.");
 }
 
 function mergePublicHolidays(

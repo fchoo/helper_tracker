@@ -12,6 +12,7 @@ describe("SheetsRepository", () => {
             "monthly_salary",
             "effective_start_date",
             "ot_day_divisor",
+            "pay_cycle_start_day",
             "default_sunday_off_policy",
             "default_sunday_off_count",
             "notes",
@@ -21,6 +22,7 @@ describe("SheetsRepository", () => {
             "cfg_1",
             "900",
             "2026-06-01",
+            "26",
             "26",
             "FIXED_COUNT",
             "4",
@@ -40,6 +42,7 @@ describe("SheetsRepository", () => {
         monthlySalary: 900,
         effectiveStartDate: "2026-06-01",
         otDayDivisor: 26,
+        payCycleStartDay: 26,
         defaultSundayOffPolicy: "ALL_SUNDAYS",
         defaultSundayOffCount: undefined,
         notes: "Initial",
@@ -63,17 +66,19 @@ describe("SheetsRepository", () => {
       monthlySalary: 900,
       effectiveStartDate: "2026-06-01",
       otDayDivisor: 26,
+      payCycleStartDay: 26,
       defaultSundayOffPolicy: "FIXED_COUNT",
       defaultSundayOffCount: 4,
       notes: "Initial",
       createdAt: "2026-06-27T12:00:00.000Z",
     });
 
-    expect(client.appendValues).toHaveBeenCalledWith("sheet_123", "Config!A:H", [
+    expect(client.appendValues).toHaveBeenCalledWith("sheet_123", "Config!A:I", [
       [
         "cfg_1",
         900,
         "2026-06-01",
+        26,
         26,
         "ALL_SUNDAYS",
         "",

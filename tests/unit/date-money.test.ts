@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   clampDateRangeToMonth,
+  clampDateRangeToRange,
   countInclusiveDays,
+  getCycleDateRange,
   getMonthDateRange,
   isDateInMonth,
   toMonthKey,
@@ -20,6 +22,20 @@ describe("date helpers", () => {
     });
   });
 
+  it("builds a pay cycle date range from the configured start day", () => {
+    expect(getCycleDateRange("2026-06", 26)).toEqual({
+      startDate: "2026-06-26",
+      endDate: "2026-07-25",
+    });
+  });
+
+  it("clamps pay cycle boundaries to the end of short months", () => {
+    expect(getCycleDateRange("2026-02", 31)).toEqual({
+      startDate: "2026-02-28",
+      endDate: "2026-03-30",
+    });
+  });
+
   it("counts inclusive days across a valid range", () => {
     expect(countInclusiveDays("2026-06-01", "2026-06-03")).toBe(3);
   });
@@ -28,6 +44,18 @@ describe("date helpers", () => {
     expect(clampDateRangeToMonth("2026-05-30", "2026-06-02", "2026-06")).toEqual({
       startDate: "2026-06-01",
       endDate: "2026-06-02",
+    });
+  });
+
+  it("clamps an overlapping date range to a custom pay cycle", () => {
+    expect(
+      clampDateRangeToRange("2026-06-25", "2026-06-27", {
+        startDate: "2026-06-26",
+        endDate: "2026-07-25",
+      }),
+    ).toEqual({
+      startDate: "2026-06-26",
+      endDate: "2026-06-27",
     });
   });
 

@@ -54,6 +54,16 @@ describe("SpreadsheetSetup", () => {
     expect(onCreate).toHaveBeenCalledTimes(1);
   });
 
+  it("shows a creation error when Google Sheet creation fails", async () => {
+    const onCreate = vi.fn().mockRejectedValue(new Error("Google OAuth is not configured."));
+
+    render(<SpreadsheetSetup onConnect={vi.fn()} onCreate={onCreate} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Create new sheet" }));
+
+    expect(await screen.findByText("Google OAuth is not configured.")).toBeInTheDocument();
+  });
+
   it("shows a validation message before connecting an empty spreadsheet id", async () => {
     render(<SpreadsheetSetup onConnect={vi.fn()} onCreate={vi.fn()} />);
 

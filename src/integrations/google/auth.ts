@@ -29,7 +29,7 @@ export type CreateGoogleTokenClientOptions = {
 };
 
 export type AppGoogleTokenClient = {
-  requestToken: () => Promise<string>;
+  requestToken: (options?: { prompt?: string }) => Promise<string>;
 };
 
 declare global {
@@ -72,11 +72,11 @@ export function createGoogleTokenClient({
   });
 
   return {
-    requestToken: () =>
+    requestToken: (options = { prompt: "" }) =>
       new Promise((resolve, reject) => {
         resolveToken = resolve;
         rejectToken = reject;
-        tokenClient.requestAccessToken({ prompt: "" });
+        tokenClient.requestAccessToken(options);
       }),
   };
 }

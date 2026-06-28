@@ -4,10 +4,10 @@ import type { PublicHoliday } from "../calendar/types";
 import type { SalaryConfig } from "../config/types";
 import { formatRecordType } from "../time-records/dayEntry";
 import type { TimeRecord } from "../time-records/types";
-import { timeRecordOverlapsMonth } from "../time-records/timeRecordMath";
+import { timeRecordOverlapsDateRange } from "../time-records/timeRecordMath";
 import { calculateMonthlyPayout } from "./calculateMonthlyPayout";
 import { SalaryPlanHistory } from "../config/SalaryPlanHistory";
-import { isMonthKey } from "../../lib/dates";
+import { getCycleDateRange, isMonthKey } from "../../lib/dates";
 import { formatSgd } from "../../lib/money";
 
 export type SalaryScreenProps = {
@@ -31,6 +31,7 @@ export function SalaryScreen({
     () =>
       calculateMonthlyPayout({
         month: selectedMonth,
+        payCycleStartDay: resolvePayCycleStartDay(salaryConfigs, selectedMonth),
         salaryConfigs,
         advances,
         advanceDeductions,
@@ -57,17 +58,21 @@ export function SalaryScreen({
   const includedDeductions = advanceDeductions.filter(
     (deduction) => deduction.month === selectedMonth,
   );
+  const visiblePayCycleRange = isMonthKey(selectedMonth)
+    ? getCycleDateRange(selectedMonth, summary.payCycleStartDay)
+    : undefined;
   const includedTimeRecords = timeRecords.filter((record) =>
-    timeRecordOverlapsMonth(record, selectedMonth),
+    visiblePayCycleRange
+      ? timeRecordOverlapsDateRange(record, visiblePayCycleRange)
+      : false,
   );
-  const expectedPayDate = getExpectedPayDate(selectedMonth);
 
   return (
     <section aria-labelledby="salary-title" className="screen">
       <header className="screen-header">
         <div>
           <h2 id="salary-title">Salary</h2>
-          <p>Review {selectedMonth} and pay by {expectedPayDate}</p>
+          <p>Review {summary.payCycleStartDate} to {summary.payCycleEndDate}</p>
         </div>
       </header>
       <section className="pay-panel" aria-label="Pay decision">
@@ -78,11 +83,17 @@ export function SalaryScreen({
         <dl>
           <div>
             <dt>Pay by</dt>
-            <dd>{expectedPayDate}</dd>
+            <dd>{summary.payDate}</dd>
           </div>
           <div>
             <dt>Salary version</dt>
             <dd>{summary.configEffectiveStartDate ?? "Not configured"}</dd>
+          </div>
+          <div>
+            <dt>Pay cycle</dt>
+            <dd>
+              {summary.payCycleStartDate} to {summary.payCycleEndDate}
+            </dd>
           </div>
           <div>
             <dt>Sunday rest days</dt>
@@ -222,12 +233,19 @@ function LineItem({
   );
 }
 
-function getExpectedPayDate(month: string): string {
+function resolvePayCycleStartDay(
+  salaryConfigs: SalaryConfig[],
+  month: string,
+): number {
   if (!isMonthKey(month)) {
-    return "Select a month";
+    return 1;
   }
 
-  const [year, monthNumber] = month.split("-").map(Number);
-  const payDate = new Date(Date.UTC(year, monthNumber, 0));
-  return payDate.toISOString().slice(0, 10);
+  const monthEnd = `${month}-31`;
+  return (
+    salaryConfigs
+      .filter((config) => config.effectiveStartDate <= monthEnd)
+      .sort((a, b) => b.effectiveStartDate.localeCompare(a.effectiveStartDate))[0]
+      ?.payCycleStartDay ?? 1
+  );
 }

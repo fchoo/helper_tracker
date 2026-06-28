@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildSpreadsheetCreateBody,
   buildEnsureSchemaRequests,
   getRequiredSheetSchemas,
   headersMatch,
@@ -18,6 +19,7 @@ describe("spreadsheet schema", () => {
         "monthly_salary",
         "effective_start_date",
         "ot_day_divisor",
+        "pay_cycle_start_day",
         "default_sunday_off_policy",
         "default_sunday_off_count",
         "notes",
@@ -52,6 +54,34 @@ describe("spreadsheet schema", () => {
 
     expect(requests.some((request) => "addSheet" in request && request.addSheet.properties.title === "Config")).toBe(false);
     expect(requests.some((request) => "addSheet" in request && request.addSheet.properties.title === "Advances")).toBe(true);
+  });
+
+  it("builds a spreadsheet create body with required tabs and header rows", () => {
+    const body = buildSpreadsheetCreateBody("Domestic Helper Tracker");
+
+    expect(body.properties.title).toBe("Domestic Helper Tracker");
+    expect(body.sheets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          properties: { title: "Config" },
+          data: [
+            expect.objectContaining({
+              rowData: [
+                expect.objectContaining({
+                  values: expect.arrayContaining([
+                    {
+                      userEnteredValue: {
+                        stringValue: "pay_cycle_start_day",
+                      },
+                    },
+                  ]),
+                }),
+              ],
+            }),
+          ],
+        }),
+      ]),
+    );
   });
 
   it("builds header update requests for sheets with missing or mismatched headers", () => {

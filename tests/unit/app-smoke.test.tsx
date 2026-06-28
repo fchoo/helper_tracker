@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { App } from "../../src/app/App";
 
 describe("App", () => {
@@ -42,5 +42,45 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Time & Calendar" }));
 
     expect(screen.getByText("2026-08")).toBeInTheDocument();
+  });
+
+  it("creates an online Google Sheet through OAuth and connects the returned spreadsheet id", async () => {
+    const user = userEvent.setup();
+    const requestToken = vi.fn().mockResolvedValue("token_123");
+    const createGoogleTokenClient = vi.fn().mockReturnValue({ requestToken });
+    const createSpreadsheet = vi.fn().mockResolvedValue({ spreadsheetId: "sheet_online" });
+    const createGoogleSheetsClient = vi.fn().mockReturnValue({ createSpreadsheet });
+
+    render(
+      <App
+        googleClientId="client_123"
+        createGoogleTokenClient={createGoogleTokenClient}
+        createGoogleSheetsClient={createGoogleSheetsClient}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Config" }));
+    await user.click(screen.getByRole("button", { name: "Create new sheet" }));
+
+    expect(createGoogleTokenClient).toHaveBeenCalledWith(
+      expect.objectContaining({ clientId: "client_123" }),
+    );
+    expect(requestToken).toHaveBeenCalledWith({ prompt: "consent" });
+    expect(createGoogleSheetsClient).toHaveBeenCalledWith({
+      accessToken: "token_123",
+    });
+    expect(createSpreadsheet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        properties: expect.objectContaining({
+          title: expect.stringContaining("Domestic Helper Tracker"),
+        }),
+        sheets: expect.arrayContaining([
+          expect.objectContaining({
+            properties: expect.objectContaining({ title: "Config" }),
+          }),
+        ]),
+      }),
+    );
+    expect(await screen.findByText("Connected to sheet_online")).toBeInTheDocument();
   });
 });

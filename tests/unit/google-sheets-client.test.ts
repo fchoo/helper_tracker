@@ -90,7 +90,11 @@ describe("GoogleSheetsClient", () => {
       fetch: fetchMock,
     });
 
-    await client.createSpreadsheet("Domestic Helper Records");
+    await client.createSpreadsheet({
+      properties: {
+        title: "Domestic Helper Records",
+      },
+    });
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://sheets.googleapis.com/v4/spreadsheets",
