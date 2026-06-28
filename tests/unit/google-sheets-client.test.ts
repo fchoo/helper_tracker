@@ -7,6 +7,34 @@ describe("GoogleSheetsClient", () => {
     vi.restoreAllMocks();
   });
 
+  it("binds the browser fetch default so create requests can run after OAuth", async () => {
+    const originalFetch = globalThis.fetch;
+    const fetchMock = vi.fn(function (this: typeof globalThis) {
+      if (this !== globalThis) {
+        throw new TypeError("Illegal invocation");
+      }
+
+      return Promise.resolve(jsonResponse({ spreadsheetId: "sheet_123" }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const client = new GoogleSheetsClient({
+        accessToken: "token_123",
+      });
+
+      await expect(
+        client.createSpreadsheet({
+          properties: {
+            title: "Domestic Helper Records",
+          },
+        }),
+      ).resolves.toEqual({ spreadsheetId: "sheet_123" });
+    } finally {
+      vi.stubGlobal("fetch", originalFetch);
+    }
+  });
+
   it("reads values with an in-memory bearer token", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ values: [["id"]] }));
     const client = new GoogleSheetsClient({

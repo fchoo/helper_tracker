@@ -9,7 +9,10 @@ export class GoogleSheetsClient {
   private readonly accessToken: string;
   private readonly fetchImpl: typeof fetch;
 
-  constructor({ accessToken, fetch: fetchImpl = fetch }: GoogleSheetsClientOptions) {
+  constructor({
+    accessToken,
+    fetch: fetchImpl = globalThis.fetch.bind(globalThis),
+  }: GoogleSheetsClientOptions) {
     if (!accessToken) {
       throw new Error("Google Sheets access token is required.");
     }
