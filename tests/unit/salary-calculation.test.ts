@@ -47,7 +47,7 @@ describe("validateAdvanceDeductionTotals", () => {
 });
 
 describe("calculateMonthlyPayout", () => {
-  it("calculates salary with Sunday OT, public holiday work, unpaid off days, and selected-month deductions", () => {
+  it("calculates salary with Sunday work, explicit PH extra pay, unpaid off days, and selected-month deductions", () => {
     const summary = calculateMonthlyPayout({
       month: "2026-06",
       salaryConfigs: [config("cfg_1", 900, "2026-01-01")],

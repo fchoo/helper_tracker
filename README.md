@@ -1,6 +1,6 @@
 # Domestic Helper Tracker
 
-A static-hosted React PWA for tracking domestic helper salary settings, advance deductions, days off, Sunday overtime, and monthly payout. Google Sheets is the source of truth.
+A static-hosted React PWA for tracking domestic helper salary settings, advance deductions, Sunday rest-day exceptions, extra unpaid days off, explicit PH extra pay, and monthly payout. Google Sheets is the source of truth.
 
 ## Development
 

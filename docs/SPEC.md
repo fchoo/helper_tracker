@@ -7,20 +7,21 @@
 4. The existing `../helper_app` Google Apps Script prototype is used for domain understanding, not as the required implementation platform.
 5. Records should be private and practical for household use; no payroll integrations, external bank connections, or multi-user admin workflows are included in MVP.
 6. Historical salary calculations must remain explainable after salary settings change.
-7. Sunday handling assumption for MVP: Sundays are default unpaid rest days for contract/calendar tracking and do not automatically deduct from the configured monthly base salary; when the helper works on a Sunday, that date is recorded and paid as Sunday overtime.
-8. The MVP should not require a custom backend server. The chosen deployment target is a static-hosted React PWA.
+7. Sunday handling assumption for MVP: Sundays are contractual rest days by default and do not reduce the configured monthly base salary; when the helper works on a Sunday, that date is recorded and paid as worked-Sunday extra pay.
+8. Public holiday handling assumption for MVP: public holidays are visible calendar context but are contractually expected work days by default; PH work creates no extra pay unless the employer explicitly records extra PH pay.
+9. The MVP should not require a custom backend server. The chosen deployment target is a static-hosted React PWA.
 
 ## Objective
-Build a mobile-first domestic helper tracker for recording salary settings, advances, off days, and Sunday overtime, then reviewing the monthly payout from one place.
+Build a mobile-first domestic helper tracker for recording salary settings, advances, day exceptions, and explicit extra pay, then reviewing the monthly payout from one place.
 
 The primary user is the employer or household manager responsible for monthly helper payroll records. Success means the user can open the app on Android or desktop, add the month's events quickly, and see a clear payout calculation while the underlying Google Sheet remains inspectable and auditable.
 
 Core user stories:
 - As the employer, I can configure the helper's monthly salary with an effective date.
 - As the employer, I can record advance payments with date, amount, note, and a split deduction schedule across one or more months.
-- As the employer, I can record off days and Sunday overtime with date ranges and notes.
+- As the employer, I can record what happened on a day: worked, rested/off, extra unpaid day off, or explicit PH extra pay.
 - As the employer, I can include Singapore Sunday/public-holiday context in monthly review.
-- As the employer, I can select a month and see base salary, overtime, unpaid deductions, advance deductions, and final payout.
+- As the employer, I can select a month and see base salary, worked-Sunday pay, explicit PH extra pay, unpaid deductions, advance deductions, and final payout.
 - As the employer, I can inspect which records contributed to the monthly calculation.
 
 ## Tech Stack
@@ -156,12 +157,13 @@ type PublicHoliday = {
 
 MVP calculation:
 - Base salary comes from the latest salary config effective on or before the selected month.
-- Sunday overtime amount = `sundayOtDays * (monthlySalary / otDayDivisor)`.
+- Worked-Sunday amount = `sundayOtDays * (monthlySalary / otDayDivisor)`.
 - Unpaid off day deduction = `unpaidOffDays * (monthlySalary / otDayDivisor)`.
+- Explicit PH extra pay = `publicHolidayWorkDays * (monthlySalary / otDayDivisor)`.
 - Advance deductions come from the advance deduction schedule for the selected month, not necessarily the date when cash was given.
 - Deduction schedule line items must sum exactly to the total advance amount.
-- Singapore public holidays are visible in the calendar and monthly review. Work on a public holiday is tracked as a paid time record when entered.
-- Final payout = `baseSalary + sundayOvertimeAmount - unpaidOffDayDeduction - advanceDeductions`.
+- Singapore public holidays are visible in the calendar and monthly review. Work on a public holiday is the default assumption and has no pay impact unless the employer explicitly records PH extra pay.
+- Final payout = `baseSalary + sundayOvertimeAmount + publicHolidayWorkAmount - unpaidOffDayDeduction - advanceDeductions`.
 - Monetary values are rounded to two decimals at display and persisted summary boundaries.
 - Currency display defaults to SGD.
 
@@ -251,7 +253,7 @@ MVP screens:
 1. Salary
    - Default screen.
    - Month selector.
-   - Summary values: base salary, daily rate, Sunday OT days, Sunday OT amount, unpaid off days, unpaid off day deduction, advance deductions, final payout.
+   - Summary values: base salary, daily rate, worked Sunday days, worked Sunday amount, explicit PH extra pay, extra unpaid days off, unpaid day deduction, advance deductions, final payout.
    - Breakdown of included advances and time records.
 2. Advances
    - Add, edit, delete advances.
@@ -259,17 +261,18 @@ MVP screens:
    - Validate that split deduction schedule totals match the advance amount.
    - Filter by selected month.
 3. Time
-   - Add, edit, delete time records.
-   - Fields: type, start date, end date, paid/unpaid for off days, notes.
-   - Sunday work is recorded as paid Sunday overtime.
-   - Monthly counts for off days and Sunday OT.
+   - Add, edit, delete day records.
+   - Fields: start date, end date, what happened, notes.
+   - Sundays are shown as rest days by default; worked Sundays are recorded as extra pay.
+   - Public holidays are shown as expected work days by default; PH work only affects pay when explicit extra PH pay is selected.
+   - Monthly counts for worked Sundays, explicit PH extra pay, and extra unpaid days off.
 4. Calendar
-   - Month view showing Sundays, Singapore public holidays, off days, and paid Sunday/public-holiday work.
+   - Month view showing Sundays, Singapore public holidays, off days, worked Sundays, and explicit PH extra pay.
    - Import or refresh Singapore public holidays for a selected year.
 5. Config
    - Add salary version.
    - Show salary version history.
-   - Configure OT day divisor with default `26`.
+   - Keep OT day divisor configurable in advanced settings with default `26`.
    - Connect or initialize the Google Sheet.
 
 Post-MVP candidates from `../helper_app`:
@@ -295,7 +298,7 @@ Integration tests:
 - Monthly salary screen updates after record changes.
 
 E2E tests:
-- First-run flow: connect or initialize Sheet, add salary config, add split advance, add Sunday OT, review payout.
+- First-run flow: connect or initialize Sheet, add salary config, add split advance, add worked Sunday, verify PH work has no impact until explicit extra pay is selected, review payout.
 - Android-sized viewport navigation and form submission.
 - Reload keeps spreadsheet connection metadata and refreshes records from Sheets.
 
@@ -324,7 +327,7 @@ Coverage expectations:
 - The app opens in desktop browser and Android Chrome viewport.
 - The app can be installed or used as a PWA after MVP PWA setup is added.
 - A user can connect or initialize a Google Sheet.
-- A user can add one salary config, one split-deduction advance, one off day, one Sunday OT record, and one public holiday record/import.
+- A user can add one salary config, one split-deduction advance, one extra unpaid day off, one worked Sunday record, one public holiday record/import, and one explicit PH extra-pay record.
 - The selected month salary page shows a correct final payout and a readable breakdown.
 - Editing or deleting an advance or time record updates the monthly payout.
 - Adding a future salary config does not change calculations for months before its effective date.

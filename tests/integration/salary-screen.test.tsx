@@ -82,9 +82,9 @@ describe("SalaryScreen", () => {
     expect(screen.getByText("Active")).toBeInTheDocument();
     expect(screen.getByText("SGD 980.00")).toBeInTheDocument();
     expect(screen.getAllByText("SGD 765.38").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Sunday overtime").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Worked Sundays").length).toBeGreaterThan(0);
     expect(screen.getByText("Loan")).toBeInTheDocument();
-    expect(screen.getByText("Worked Sunday")).toBeInTheDocument();
+    expect(screen.getAllByText("Worked Sunday").length).toBeGreaterThan(0);
     expect(screen.getByText("Overlapping off day")).toBeInTheDocument();
   });
 });

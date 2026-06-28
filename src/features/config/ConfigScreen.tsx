@@ -29,7 +29,7 @@ export function ConfigScreen({
       <header className="screen-header">
         <div>
           <h2 id="config-title">Configuration</h2>
-          <p>Set up the Google Sheet, salary plan, and default off-day rules.</p>
+          <p>Set up the Google Sheet, salary plan, and Sunday rest-day rules.</p>
         </div>
       </header>
       {onConnectSpreadsheet && onCreateSpreadsheet ? (
@@ -88,7 +88,7 @@ function SalaryConfigForm({
       defaultSundayOffPolicy === "FIXED_COUNT" &&
       (!Number.isInteger(sundayOffCount) || sundayOffCount < 0 || sundayOffCount > 5)
     ) {
-      setError("Default Sunday off count must be between 0 and 5.");
+      setError("Sunday rest-day count must be between 0 and 5.");
       return;
     }
 
@@ -129,16 +129,19 @@ function SalaryConfigForm({
           onChange={(event) => setEffectiveStartDate(event.target.value)}
         />
       </label>
-      <label>
-        OT day divisor
-        <input
-          inputMode="numeric"
-          value={otDayDivisor}
-          onChange={(event) => setOtDayDivisor(event.target.value)}
-        />
-      </label>
+      <details className="advanced-settings">
+        <summary>Advanced pay settings</summary>
+        <label>
+          OT day divisor
+          <input
+            inputMode="numeric"
+            value={otDayDivisor}
+            onChange={(event) => setOtDayDivisor(event.target.value)}
+          />
+        </label>
+      </details>
       <fieldset className="field-group sunday-selector">
-        <legend>Default Sunday off days</legend>
+        <legend>Sunday rest days</legend>
         <div className="choice-card-grid">
           {[4, 5].map((count) => (
             <label className="choice-card" key={count}>
@@ -159,7 +162,7 @@ function SalaryConfigForm({
               <span>{count} Sundays</span>
               <small>
                 {count === 4
-                  ? "Usual monthly default"
+                  ? "Usual contractual default"
                   : "Use when a month has five Sundays"}
               </small>
             </label>
@@ -174,7 +177,7 @@ function SalaryConfigForm({
               onChange={() => setDefaultSundayOffPolicy("ALL_SUNDAYS")}
             />
             <span>All Sundays</span>
-            <small>Automatically adapts to each month</small>
+            <small>Automatically treats every Sunday as rest</small>
           </label>
         </div>
       </fieldset>

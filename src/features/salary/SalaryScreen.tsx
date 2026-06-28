@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { Advance, AdvanceDeduction } from "../advances/types";
 import type { PublicHoliday } from "../calendar/types";
 import type { SalaryConfig } from "../config/types";
+import { formatRecordType } from "../time-records/dayEntry";
 import type { TimeRecord } from "../time-records/types";
 import { timeRecordOverlapsMonth } from "../time-records/timeRecordMath";
 import { calculateMonthlyPayout } from "./calculateMonthlyPayout";
@@ -84,7 +85,7 @@ export function SalaryScreen({
             <dd>{summary.configEffectiveStartDate ?? "Not configured"}</dd>
           </div>
           <div>
-            <dt>Default Sundays off</dt>
+            <dt>Sunday rest days</dt>
             <dd>
               {summary.defaultSundayOffDays} of {summary.sundayCount}
               {summary.extraSundayCount
@@ -98,15 +99,15 @@ export function SalaryScreen({
         <SummaryItem label="Base salary" value={formatSgd(summary.baseSalary)} />
         <SummaryItem label="Daily rate" value={formatSgd(summary.dailyRate)} />
         <SummaryItem
-          label="Sunday overtime"
+          label="Worked Sundays"
           value={`${summary.sundayOtDays} days, ${formatSgd(summary.sundayOtAmount)}`}
         />
         <SummaryItem
-          label="Public holiday work"
+          label="Extra PH pay"
           value={`${summary.publicHolidayWorkDays} days, ${formatSgd(summary.publicHolidayWorkAmount)}`}
         />
         <SummaryItem
-          label="Unpaid off day deduction"
+          label="Extra unpaid day deduction"
           value={`${summary.unpaidOffDays} days, ${formatSgd(summary.unpaidOffDayDeduction)}`}
         />
         <SummaryItem
@@ -118,10 +119,10 @@ export function SalaryScreen({
         <h3 id="salary-breakdown-title">Payout breakdown</h3>
         <dl className="line-items">
           <LineItem label="Base monthly salary" value={summary.baseSalary} />
-          <LineItem label="Sunday overtime" value={summary.sundayOtAmount} />
-          <LineItem label="Public holiday work" value={summary.publicHolidayWorkAmount} />
+          <LineItem label="Worked Sundays" value={summary.sundayOtAmount} />
+          <LineItem label="Extra PH pay" value={summary.publicHolidayWorkAmount} />
           <LineItem
-            label="Unpaid off day deduction"
+            label="Extra unpaid day deduction"
             value={-summary.unpaidOffDayDeduction}
           />
           <LineItem label="Advance deductions" value={-summary.totalAdvanceDeductions} />
@@ -226,16 +227,4 @@ function getExpectedPayDate(month: string): string {
   const [year, monthNumber] = month.split("-").map(Number);
   const payDate = new Date(Date.UTC(year, monthNumber, 0));
   return payDate.toISOString().slice(0, 10);
-}
-
-function formatRecordType(type: TimeRecord["type"]): string {
-  if (type === "SUNDAY_OT") {
-    return "Sunday OT";
-  }
-
-  if (type === "PUBLIC_HOLIDAY_WORK") {
-    return "Public holiday work";
-  }
-
-  return "Off day";
 }

@@ -42,7 +42,7 @@ describe("CalendarScreen", () => {
 
     expect(screen.getByText("National Day")).toBeInTheDocument();
     expect(screen.getAllByText("Sunday").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Sunday OT").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Worked Sunday").length).toBeGreaterThan(0);
     expect(screen.getByText("Overlapping off day")).toBeInTheDocument();
   });
 
@@ -139,5 +139,48 @@ describe("CalendarScreen", () => {
     );
 
     expect(screen.getAllByText("Parent loaded holiday").length).toBeGreaterThan(0);
+  });
+
+  it("treats public holidays as expected work days unless extra pay is selected", async () => {
+    const user = userEvent.setup();
+    const addedRecords: unknown[] = [];
+
+    render(
+      <CalendarScreen
+        selectedMonth="2026-08"
+        publicHolidays={[
+          {
+            id: "holiday_1",
+            name: "National Day observed",
+            date: "2026-08-10",
+            year: 2026,
+            source: "MANUAL",
+            createdAt: "2026-06-27T12:00:00.000Z",
+          },
+        ]}
+        timeRecords={[]}
+        onAddTimeRecord={(record) => {
+          addedRecords.push(record);
+        }}
+      />,
+    );
+
+    await user.type(screen.getByLabelText("Start date"), "2026-08-10");
+    await user.click(screen.getByLabelText("Worked"));
+    await user.click(screen.getByRole("button", { name: "Save day" }));
+
+    expect(addedRecords).toHaveLength(0);
+    expect(screen.getByRole("status")).toHaveTextContent("No payroll change to save.");
+
+    await user.click(screen.getByLabelText("Pay extra for PH work"));
+    await user.click(screen.getByRole("button", { name: "Save day" }));
+
+    expect(addedRecords).toContainEqual(
+      expect.objectContaining({
+        type: "PUBLIC_HOLIDAY_WORK",
+        startDate: "2026-08-10",
+        endDate: "2026-08-10",
+      }),
+    );
   });
 });

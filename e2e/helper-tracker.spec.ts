@@ -23,7 +23,6 @@ test("tracks a monthly helper payout from setup through salary review", async ({
 
   await page.getByLabel("Monthly salary").fill("900");
   await page.getByLabel("Effective start date").fill("2026-01-01");
-  await page.getByLabel("OT day divisor").fill("26");
   await page.getByLabel("Notes").fill("Current contract");
   await page.getByRole("button", { name: "Save salary plan" }).click();
   await expect(page.getByText("SGD 900.00")).toBeVisible();
@@ -43,40 +42,54 @@ test("tracks a monthly helper payout from setup through salary review", async ({
   await expect(page.getByText("Deducted in 2026-08: SGD 100.00")).toBeVisible();
 
   await page.getByRole("button", { name: "Time & Calendar" }).click();
-  await page.getByLabel("Record type").selectOption("SUNDAY_OT");
   await page.getByLabel("Start date").fill("2026-08-09");
-  await page.getByLabel("End date").fill("2026-08-09");
+  await page.getByLabel("Worked").check();
   await page.getByLabel("Time notes").fill("Worked Sunday");
-  await page.getByRole("button", { name: "Save time record" }).click();
-  await expect(summaryItem(page, "Sunday OT")).toContainText("1");
+  await page.getByRole("button", { name: "Save day" }).click();
+  await expect(summaryItem(page, "Worked Sundays")).toContainText("1");
 
-  await page.getByLabel("Record type").selectOption("PUBLIC_HOLIDAY_WORK");
+  await page.getByLabel("Holiday name").fill("National Day observed");
   await page.getByLabel("Start date").fill("2026-08-10");
-  await page.getByLabel("End date").fill("2026-08-10");
-  await page.getByLabel("Time notes").fill("Worked public holiday");
-  await page.getByRole("button", { name: "Save time record" }).click();
-  await expect(
-    page.getByLabel("Time records").getByText("Public holiday work"),
-  ).toBeVisible();
+  await page.getByLabel("Holiday date").fill("2026-08-10");
+  await page.getByRole("button", { name: "Add public holiday" }).click();
+
+  await page.getByLabel("Start date").fill("2026-08-10");
+  await page.getByLabel("Worked").check();
+  await page.getByRole("button", { name: "Save day" }).click();
+  await expect(page.getByRole("status")).toContainText("No payroll change to save.");
+
+  await page.getByLabel("Pay extra for PH work").check();
+  await page.getByLabel("Time notes").fill("Paid extra for public holiday");
+  await page.getByRole("button", { name: "Save day" }).click();
+  await expect(page.getByLabel("Time records").getByText("Extra PH pay")).toBeVisible();
 
   await page.getByLabel("Holiday name").fill("National Day");
   await page.getByLabel("Holiday date").fill("2026-08-09");
   await page.getByRole("button", { name: "Add public holiday" }).click();
   const calendar = page.getByRole("list", { name: "Monthly calendar" });
-  await expect(calendar.getByRole("listitem").filter({ hasText: "National Day" })).toBeVisible();
-  await expect(calendar.getByRole("listitem").filter({ hasText: "Sunday OT" })).toBeVisible();
+  const sundayHoliday = calendar
+    .getByRole("listitem")
+    .filter({ hasText: "09" })
+    .filter({ hasText: "National Day" });
+  await expect(sundayHoliday).toBeVisible();
+  await expect(sundayHoliday).toContainText("Worked Sunday");
 
   await page.getByRole("button", { name: "Salary" }).click();
   await expect(summaryItem(page, "Base salary")).toContainText("SGD 900.00");
-  await expect(summaryItem(page, "Sunday overtime")).toContainText("1 days");
-  await expect(summaryItem(page, "Sunday overtime")).toContainText("SGD 34.62");
-  await expect(summaryItem(page, "Public holiday work")).toContainText("SGD 34.62");
+  await expect(summaryItem(page, "Worked Sundays")).toContainText("1 days");
+  await expect(summaryItem(page, "Worked Sundays")).toContainText("SGD 34.62");
+  await expect(summaryItem(page, "Extra PH pay")).toContainText("SGD 34.62");
   await expect(summaryItem(page, "Advance deductions")).toContainText("SGD 100.00");
   await expect(page.getByLabel("Pay decision")).toContainText("SGD 869.24");
   await expect(page.getByText("Final payout")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Salary plan history" })).toBeVisible();
   await expect(page.getByText("School expense")).toBeVisible();
-  await expect(page.getByText("Worked Sunday")).toBeVisible();
+  await expect(
+    page
+      .getByRole("list")
+      .filter({ hasText: "Worked Sunday" })
+      .filter({ hasText: "2026-08-09" }),
+  ).toBeVisible();
 });
 
 test("keeps navigation usable on desktop and Android-sized viewports", async ({

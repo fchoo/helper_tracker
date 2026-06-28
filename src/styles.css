@@ -325,6 +325,26 @@ small {
   padding-bottom: var(--space-1);
 }
 
+.advanced-settings {
+  display: grid;
+  gap: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  padding: var(--space-3) var(--space-4);
+}
+
+.advanced-settings summary {
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.advanced-settings label {
+  margin-top: var(--space-3);
+}
+
 .stack-form button,
 .panel-header button {
   justify-self: start;

@@ -42,8 +42,8 @@ export function SalaryPlanHistory({
 
 function formatSundayOffPolicy(config: SalaryConfig): string {
   if (config.defaultSundayOffPolicy === "ALL_SUNDAYS") {
-    return "All Sundays off";
+    return "All Sundays rest days";
   }
 
-  return `${config.defaultSundayOffCount ?? 4} Sundays off`;
+  return `${config.defaultSundayOffCount ?? 4} Sunday rest days`;
 }

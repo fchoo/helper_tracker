@@ -1,17 +1,26 @@
 import { FormEvent, useMemo, useState } from "react";
-import type { TimeRecord, TimeRecordType } from "./types";
+import type { PublicHoliday } from "../calendar/types";
+import {
+  buildTimeRecordInput,
+  formatRecordType,
+  getDayContext,
+  type DayEntryAction,
+} from "./dayEntry";
+import type { TimeRecord } from "./types";
 import { countTimeRecordsForMonth } from "./timeRecordMath";
 
 export type NewTimeRecordInput = Omit<TimeRecord, "id" | "createdAt">;
 
 export type TimeRecordsScreenProps = {
   selectedMonth: string;
+  publicHolidays?: PublicHoliday[];
   timeRecords: TimeRecord[];
   onAddTimeRecord: (record: NewTimeRecordInput) => Promise<void> | void;
 };
 
 export function TimeRecordsScreen({
   selectedMonth,
+  publicHolidays = [],
   timeRecords,
   onAddTimeRecord,
 }: TimeRecordsScreenProps) {
@@ -19,31 +28,45 @@ export function TimeRecordsScreen({
     () => countTimeRecordsForMonth(timeRecords, selectedMonth),
     [timeRecords, selectedMonth],
   );
+  const publicHolidayDates = useMemo(
+    () => new Set(publicHolidays.map((holiday) => holiday.date)),
+    [publicHolidays],
+  );
 
   return (
     <section aria-labelledby="time-records-title" className="screen">
       <header className="screen-header">
         <h2 id="time-records-title">Time Records</h2>
-        <p>Sunday OT: {counts.sundayOtDays}</p>
-        <p>Unpaid off days: {counts.unpaidOffDays}</p>
+        <p>Worked Sundays: {counts.sundayOtDays}</p>
+        <p>Extra unpaid days off: {counts.unpaidOffDays}</p>
       </header>
-      <TimeRecordForm onSubmit={onAddTimeRecord} />
+      <TimeRecordForm
+        publicHolidayDates={publicHolidayDates}
+        onSubmit={onAddTimeRecord}
+      />
       <TimeRecordList timeRecords={timeRecords} />
     </section>
   );
 }
 
 function TimeRecordForm({
+  publicHolidayDates,
   onSubmit,
 }: {
+  publicHolidayDates: Set<string>;
   onSubmit: TimeRecordsScreenProps["onAddTimeRecord"];
 }) {
-  const [type, setType] = useState<TimeRecordType>("OFF_DAY");
+  const [action, setAction] = useState<DayEntryAction>("WORKED");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [isPaidOffDay, setIsPaidOffDay] = useState(false);
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
+  const [status, setStatus] = useState("");
+  const dayContext = getDayContext(startDate, publicHolidayDates);
+  const isPublicHoliday = publicHolidayDates.has(startDate);
+  const isSunday = startDate
+    ? new Date(`${startDate}T00:00:00.000Z`).getUTCDay() === 0
+    : false;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -57,37 +80,36 @@ function TimeRecordForm({
 
     if (resolvedEndDate < startDate) {
       setError("End date must be on or after start date.");
+      setStatus("");
+      return;
+    }
+
+    const record = buildTimeRecordInput({
+      action,
+      startDate,
+      endDate: resolvedEndDate,
+      publicHolidayDates,
+      notes,
+    });
+
+    if (!record) {
+      setError("");
+      setStatus("No payroll change to save.");
       return;
     }
 
     setError("");
-    await onSubmit({
-      type,
-      startDate,
-      endDate: resolvedEndDate,
-      isPaidOffDay: type === "OFF_DAY" ? isPaidOffDay : undefined,
-      notes: notes.trim(),
-    });
+    setStatus("");
+    await onSubmit(record);
 
     setStartDate("");
     setEndDate("");
-    setIsPaidOffDay(false);
+    setAction("WORKED");
     setNotes("");
   }
 
   return (
     <form className="stack-form" onSubmit={handleSubmit}>
-      <label>
-        Record type
-        <select
-          value={type}
-          onChange={(event) => setType(event.target.value as TimeRecordType)}
-        >
-          <option value="OFF_DAY">Off day</option>
-          <option value="SUNDAY_OT">Sunday OT</option>
-          <option value="PUBLIC_HOLIDAY_WORK">Public holiday work</option>
-        </select>
-      </label>
       <label>
         Start date
         <input
@@ -104,16 +126,52 @@ function TimeRecordForm({
           onChange={(event) => setEndDate(event.target.value)}
         />
       </label>
-      {type === "OFF_DAY" ? (
+      <p>{dayContext}</p>
+      <fieldset className="field-group">
+        <legend>What happened?</legend>
+        <label className="choice-row">
+          <input
+            type="radio"
+            name="day-entry-action"
+            value="WORKED"
+            checked={action === "WORKED"}
+            onChange={() => setAction("WORKED")}
+          />
+          Worked
+        </label>
+        <label className="choice-row">
+          <input
+            type="radio"
+            name="day-entry-action"
+            value="RESTED"
+            checked={action === "RESTED"}
+            onChange={() => setAction("RESTED")}
+          />
+          Rested / off day
+        </label>
         <label>
           <input
-            type="checkbox"
-            checked={isPaidOffDay}
-            onChange={(event) => setIsPaidOffDay(event.target.checked)}
+            type="radio"
+            name="day-entry-action"
+            value="UNPAID_OFF"
+            checked={action === "UNPAID_OFF"}
+            onChange={() => setAction("UNPAID_OFF")}
           />
-          Paid off day
+          Extra unpaid day off
         </label>
-      ) : null}
+        {isPublicHoliday && !isSunday ? (
+          <label className="choice-row">
+            <input
+              type="radio"
+              name="day-entry-action"
+              value="EXTRA_PH_PAY"
+              checked={action === "EXTRA_PH_PAY"}
+              onChange={() => setAction("EXTRA_PH_PAY")}
+            />
+            Pay extra for PH work
+          </label>
+        ) : null}
+      </fieldset>
       <label>
         Notes
         <textarea
@@ -122,7 +180,8 @@ function TimeRecordForm({
         />
       </label>
       {error ? <p role="alert">{error}</p> : null}
-      <button type="submit">Save time record</button>
+      {status ? <p role="status">{status}</p> : null}
+      <button type="submit">Save day</button>
     </form>
   );
 }
@@ -146,16 +205,4 @@ function TimeRecordList({ timeRecords }: { timeRecords: TimeRecord[] }) {
       ))}
     </ul>
   );
-}
-
-function formatRecordType(type: TimeRecordType): string {
-  if (type === "SUNDAY_OT") {
-    return "Sunday OT";
-  }
-
-  if (type === "PUBLIC_HOLIDAY_WORK") {
-    return "Public holiday work";
-  }
-
-  return "Off day";
 }
