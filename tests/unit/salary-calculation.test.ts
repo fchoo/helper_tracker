@@ -98,7 +98,7 @@ describe("calculateMonthlyPayout", () => {
     expect(summary.finalPayout).toBe(900);
   });
 
-  it("surfaces five-Sunday months when only four Sundays are default off days", () => {
+  it("treats every Sunday as a default rest day without salary-plan configuration", () => {
     const summary = calculateMonthlyPayout({
       month: "2026-08",
       salaryConfigs: [config("cfg_1", 900, "2026-01-01")],
@@ -109,17 +109,18 @@ describe("calculateMonthlyPayout", () => {
     });
 
     expect(summary.sundayCount).toBe(5);
-    expect(summary.defaultSundayOffDays).toBe(4);
-    expect(summary.extraSundayCount).toBe(1);
+    expect(summary.defaultSundayOffDays).toBe(5);
+    expect(summary.extraSundayCount).toBe(0);
   });
 
-  it("can treat all Sundays in the month as default off days", () => {
+  it("ignores legacy fixed Sunday counts and still treats all Sundays as rest days", () => {
     const summary = calculateMonthlyPayout({
       month: "2026-08",
       salaryConfigs: [
         {
           ...config("cfg_1", 900, "2026-01-01"),
-          defaultSundayOffPolicy: "ALL_SUNDAYS",
+          defaultSundayOffPolicy: "FIXED_COUNT",
+          defaultSundayOffCount: 4,
         },
       ],
       advances: [],

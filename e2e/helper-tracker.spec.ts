@@ -23,9 +23,15 @@ test("tracks a monthly helper payout from setup through salary review", async ({
 
   await page.getByLabel("Monthly salary").fill("900");
   await page.getByLabel("Effective start date").fill("2026-01-01");
-  await page.getByLabel("Notes").fill("Current contract");
+  await page.getByLabel("Salary notes").fill("Current contract");
   await page.getByRole("button", { name: "Save salary plan" }).click();
   await expect(page.getByText("SGD 900.00")).toBeVisible();
+  await page.getByLabel("Holiday name").fill("National Day observed");
+  await page.getByLabel("Holiday date").fill("2026-08-10");
+  await page.getByRole("button", { name: "Add public holiday" }).click();
+  await page.getByLabel("Holiday name").fill("National Day");
+  await page.getByLabel("Holiday date").fill("2026-08-09");
+  await page.getByRole("button", { name: "Add public holiday" }).click();
 
   await page.getByRole("button", { name: "Advances" }).click();
   await page.getByRole("button", { name: "Add advance" }).click();
@@ -42,17 +48,14 @@ test("tracks a monthly helper payout from setup through salary review", async ({
   await expect(page.getByText("Deducted in 2026-08: SGD 100.00")).toBeVisible();
 
   await page.getByRole("button", { name: "Time & Calendar" }).click();
+  await page.getByRole("button", { name: "Add time" }).click();
   await page.getByLabel("Start date").fill("2026-08-09");
   await page.getByLabel("Worked").check();
   await page.getByLabel("Time notes").fill("Worked Sunday");
   await page.getByRole("button", { name: "Save day" }).click();
   await expect(summaryItem(page, "Worked Sundays")).toContainText("1");
 
-  await page.getByLabel("Holiday name").fill("National Day observed");
-  await page.getByLabel("Start date").fill("2026-08-10");
-  await page.getByLabel("Holiday date").fill("2026-08-10");
-  await page.getByRole("button", { name: "Add public holiday" }).click();
-
+  await page.getByRole("button", { name: "Add time" }).click();
   await page.getByLabel("Start date").fill("2026-08-10");
   await page.getByLabel("Worked").check();
   await page.getByRole("button", { name: "Save day" }).click();
@@ -63,9 +66,6 @@ test("tracks a monthly helper payout from setup through salary review", async ({
   await page.getByRole("button", { name: "Save day" }).click();
   await expect(page.getByLabel("Time records").getByText("Extra PH pay")).toBeVisible();
 
-  await page.getByLabel("Holiday name").fill("National Day");
-  await page.getByLabel("Holiday date").fill("2026-08-09");
-  await page.getByRole("button", { name: "Add public holiday" }).click();
   const calendar = page.getByRole("list", { name: "Monthly calendar" });
   const sundayHoliday = calendar
     .getByRole("listitem")

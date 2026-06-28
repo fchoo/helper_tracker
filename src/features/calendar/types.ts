@@ -9,3 +9,9 @@ export type PublicHoliday = {
   notes?: string;
   createdAt: string;
 };
+
+export type NewPublicHolidayInput = {
+  name: string;
+  date: string;
+  notes?: string;
+};

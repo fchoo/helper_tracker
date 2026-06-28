@@ -78,14 +78,10 @@ export function calculateMonthlyPayout(
 }
 
 function resolveDefaultSundayOffDays(
-  config: SalaryConfig | undefined,
+  _config: SalaryConfig | undefined,
   sundayCount: number,
 ): number {
-  if (config?.defaultSundayOffPolicy === "ALL_SUNDAYS") {
-    return sundayCount;
-  }
-
-  return Math.min(config?.defaultSundayOffCount ?? 4, sundayCount);
+  return sundayCount;
 }
 
 function countSundaysInMonth(month: string): number {

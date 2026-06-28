@@ -46,102 +46,7 @@ describe("CalendarScreen", () => {
     expect(screen.getByText("Overlapping off day")).toBeInTheDocument();
   });
 
-  it("imports and manages public holidays", async () => {
-    const user = userEvent.setup();
-
-    render(
-      <CalendarScreen
-        selectedMonth="2026-08"
-        publicHolidays={[]}
-        timeRecords={[]}
-        onImportPublicHolidays={async () => [
-          {
-            id: "holiday_1",
-            name: "National Day",
-            date: "2026-08-09",
-            year: 2026,
-            source: "SINGAPORE_IMPORT",
-            notes: "Sunday",
-            createdAt: "2026-06-27T12:00:00.000Z",
-          },
-        ]}
-        onAddPublicHoliday={async (holiday) => ({
-          ...holiday,
-          id: "manual_1",
-          year: Number(holiday.date.slice(0, 4)),
-          source: "MANUAL",
-          createdAt: "2026-06-27T12:00:00.000Z",
-        })}
-        onDeletePublicHoliday={async () => undefined}
-      />,
-    );
-
-    await user.click(screen.getByRole("button", { name: "Import 2026 holidays" }));
-    expect((await screen.findAllByText("National Day")).length).toBeGreaterThan(0);
-
-    await user.type(screen.getByLabelText("Holiday name"), "Family holiday");
-    await user.type(screen.getByLabelText("Holiday date"), "2026-08-17");
-    await user.click(screen.getByRole("button", { name: "Add public holiday" }));
-    expect((await screen.findAllByText("Family holiday")).length).toBeGreaterThan(0);
-
-    await user.click(screen.getByRole("button", { name: "Edit Family holiday" }));
-    await user.clear(screen.getByLabelText("Holiday name"));
-    await user.type(screen.getByLabelText("Holiday name"), "Family holiday updated");
-    await user.click(screen.getByRole("button", { name: "Save public holiday" }));
-    expect(
-      (await screen.findAllByText("Family holiday updated")).length,
-    ).toBeGreaterThan(0);
-
-    await user.click(
-      screen.getByRole("button", { name: "Delete Family holiday updated" }),
-    );
-    expect(screen.queryByText("Family holiday updated")).not.toBeInTheDocument();
-  });
-
-  it("refreshes managed holidays when parent state changes", () => {
-    const { rerender } = render(
-      <CalendarScreen
-        selectedMonth="2026-08"
-        publicHolidays={[]}
-        timeRecords={[]}
-        onAddPublicHoliday={async (holiday) => ({
-          ...holiday,
-          id: "manual_1",
-          year: Number(holiday.date.slice(0, 4)),
-          source: "MANUAL",
-          createdAt: "2026-06-27T12:00:00.000Z",
-        })}
-      />,
-    );
-
-    rerender(
-      <CalendarScreen
-        selectedMonth="2026-08"
-        publicHolidays={[
-          {
-            id: "holiday_1",
-            name: "Parent loaded holiday",
-            date: "2026-08-09",
-            year: 2026,
-            source: "SINGAPORE_IMPORT",
-            createdAt: "2026-06-27T12:00:00.000Z",
-          },
-        ]}
-        timeRecords={[]}
-        onAddPublicHoliday={async (holiday) => ({
-          ...holiday,
-          id: "manual_1",
-          year: Number(holiday.date.slice(0, 4)),
-          source: "MANUAL",
-          createdAt: "2026-06-27T12:00:00.000Z",
-        })}
-      />,
-    );
-
-    expect(screen.getAllByText("Parent loaded holiday").length).toBeGreaterThan(0);
-  });
-
-  it("treats public holidays as expected work days unless extra pay is selected", async () => {
+  it("opens day entry in a dialog and defaults end date to the start date", async () => {
     const user = userEvent.setup();
     const addedRecords: unknown[] = [];
 
@@ -165,7 +70,11 @@ describe("CalendarScreen", () => {
       />,
     );
 
+    await user.click(screen.getByRole("button", { name: "Add time" }));
+    expect(screen.getByRole("dialog", { name: "Add time" })).toBeInTheDocument();
+
     await user.type(screen.getByLabelText("Start date"), "2026-08-10");
+    expect(screen.getByLabelText("End date")).toHaveValue("2026-08-10");
     await user.click(screen.getByLabelText("Worked"));
     await user.click(screen.getByRole("button", { name: "Save day" }));
 
@@ -182,5 +91,77 @@ describe("CalendarScreen", () => {
         endDate: "2026-08-10",
       }),
     );
+  });
+
+  it("blocks an end date before the start date in the time dialog", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <CalendarScreen
+        selectedMonth="2026-08"
+        publicHolidays={[]}
+        timeRecords={[]}
+        onAddTimeRecord={() => undefined}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Add time" }));
+    await user.type(screen.getByLabelText("Start date"), "2026-08-10");
+    await user.clear(screen.getByLabelText("End date"));
+    await user.type(screen.getByLabelText("End date"), "2026-08-09");
+    await user.click(screen.getByRole("button", { name: "Save day" }));
+
+    expect(
+      screen.getByText("End date must be on or after start date."),
+    ).toBeInTheDocument();
+  });
+
+  it("updates an existing time record from the dialog", async () => {
+    const user = userEvent.setup();
+    const updatedRecords: unknown[] = [];
+
+    render(
+      <CalendarScreen
+        selectedMonth="2026-08"
+        publicHolidays={[]}
+        timeRecords={[
+          {
+            id: "time_1",
+            type: "SUNDAY_OT",
+            startDate: "2026-08-09",
+            endDate: "2026-08-09",
+            notes: "Old note",
+            createdAt: "2026-06-27T12:00:00.000Z",
+          },
+        ]}
+        onUpdateTimeRecord={(record) => {
+          updatedRecords.push(record);
+        }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Edit time record" }));
+    await user.clear(screen.getByLabelText("Time notes"));
+    await user.type(screen.getByLabelText("Time notes"), "Updated note");
+    await user.click(screen.getByRole("button", { name: "Update day" }));
+
+    expect(updatedRecords).toContainEqual(
+      expect.objectContaining({
+        id: "time_1",
+        type: "SUNDAY_OT",
+        startDate: "2026-08-09",
+        endDate: "2026-08-09",
+        notes: "Updated note",
+      }),
+    );
+  });
+
+  it("shows weekday headers above the monthly calendar", () => {
+    render(
+      <CalendarScreen selectedMonth="2026-08" publicHolidays={[]} timeRecords={[]} />,
+    );
+
+    expect(screen.getByText("Mon")).toBeInTheDocument();
+    expect(screen.getByText("Sun")).toBeInTheDocument();
   });
 });

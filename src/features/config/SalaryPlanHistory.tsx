@@ -30,7 +30,7 @@ export function SalaryPlanHistory({
             <strong>{formatSgd(config.monthlySalary)}</strong>
             <span>Effective {config.effectiveStartDate}</span>
             <span>OT divisor {config.otDayDivisor}</span>
-            <span>{formatSundayOffPolicy(config)}</span>
+            <span>{formatSundayOffPolicy()}</span>
             {isActive ? <span className="status-pill status-healthy">Active</span> : null}
             {config.notes ? <span className="record-note">{config.notes}</span> : null}
           </li>
@@ -40,10 +40,6 @@ export function SalaryPlanHistory({
   );
 }
 
-function formatSundayOffPolicy(config: SalaryConfig): string {
-  if (config.defaultSundayOffPolicy === "ALL_SUNDAYS") {
-    return "All Sundays rest days";
-  }
-
-  return `${config.defaultSundayOffCount ?? 4} Sunday rest days`;
+function formatSundayOffPolicy(): string {
+  return "All Sundays rest days";
 }

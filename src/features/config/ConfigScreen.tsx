@@ -1,5 +1,7 @@
 import { FormEvent, useState } from "react";
-import type { SalaryConfig, SundayOffPolicy } from "./types";
+import { PublicHolidayPanel } from "../calendar/PublicHolidayPanel";
+import type { NewPublicHolidayInput, PublicHoliday } from "../calendar/types";
+import type { SalaryConfig } from "./types";
 import { parseMoneyInput } from "../../lib/money";
 import { SalaryPlanHistory } from "./SalaryPlanHistory";
 import { SpreadsheetSetup } from "./SpreadsheetSetup";
@@ -8,28 +10,44 @@ import type { SpreadsheetHealthCheck } from "./spreadsheetHealth";
 export type NewSalaryConfigInput = Omit<SalaryConfig, "id" | "createdAt">;
 
 export type ConfigScreenProps = {
+  selectedMonth: string;
   salaryConfigs: SalaryConfig[];
+  publicHolidays?: PublicHoliday[];
   spreadsheetId?: string;
   onAddSalaryConfig: (config: NewSalaryConfigInput) => Promise<void> | void;
   onConnectSpreadsheet?: (spreadsheetId: string) => Promise<void> | void;
   onCreateSpreadsheet?: () => Promise<void> | void;
   onCheckSpreadsheetHealth?: (spreadsheetId: string) => Promise<SpreadsheetHealthCheck> | SpreadsheetHealthCheck;
+  onImportPublicHolidays?: (year: number) => Promise<PublicHoliday[]>;
+  onAddPublicHoliday?: (
+    holiday: NewPublicHolidayInput,
+  ) => Promise<PublicHoliday> | PublicHoliday;
+  onUpdatePublicHoliday?: (
+    holiday: PublicHoliday,
+  ) => Promise<PublicHoliday> | PublicHoliday;
+  onDeletePublicHoliday?: (holidayId: string) => Promise<void> | void;
 };
 
 export function ConfigScreen({
+  selectedMonth,
   salaryConfigs,
+  publicHolidays = [],
   spreadsheetId,
   onAddSalaryConfig,
   onConnectSpreadsheet,
   onCreateSpreadsheet,
   onCheckSpreadsheetHealth,
+  onImportPublicHolidays,
+  onAddPublicHoliday,
+  onUpdatePublicHoliday,
+  onDeletePublicHoliday,
 }: ConfigScreenProps) {
   return (
     <section aria-labelledby="config-title" className="screen">
       <header className="screen-header">
         <div>
           <h2 id="config-title">Configuration</h2>
-          <p>Set up the Google Sheet, salary plan, and Sunday rest-day rules.</p>
+          <p>Set up the Google Sheet, salary plan, and public holidays.</p>
         </div>
       </header>
       {onConnectSpreadsheet && onCreateSpreadsheet ? (
@@ -43,6 +61,14 @@ export function ConfigScreen({
       <div className="config-layout">
         <SalaryConfigForm onSubmit={onAddSalaryConfig} />
         <SalaryConfigList salaryConfigs={salaryConfigs} />
+        <PublicHolidayPanel
+          holidays={publicHolidays}
+          selectedYear={Number(selectedMonth.slice(0, 4))}
+          onImportPublicHolidays={onImportPublicHolidays}
+          onAddPublicHoliday={onAddPublicHoliday}
+          onUpdatePublicHoliday={onUpdatePublicHoliday}
+          onDeletePublicHoliday={onDeletePublicHoliday}
+        />
       </div>
     </section>
   );
@@ -56,9 +82,6 @@ function SalaryConfigForm({
   const [monthlySalary, setMonthlySalary] = useState("");
   const [effectiveStartDate, setEffectiveStartDate] = useState("");
   const [otDayDivisor, setOtDayDivisor] = useState("26");
-  const [defaultSundayOffPolicy, setDefaultSundayOffPolicy] =
-    useState<SundayOffPolicy>("FIXED_COUNT");
-  const [defaultSundayOffCount, setDefaultSundayOffCount] = useState("4");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
 
@@ -82,32 +105,19 @@ function SalaryConfigForm({
       return;
     }
 
-    const sundayOffCount = Number(defaultSundayOffCount);
-
-    if (
-      defaultSundayOffPolicy === "FIXED_COUNT" &&
-      (!Number.isInteger(sundayOffCount) || sundayOffCount < 0 || sundayOffCount > 5)
-    ) {
-      setError("Sunday rest-day count must be between 0 and 5.");
-      return;
-    }
-
     setError("");
     await onSubmit({
       monthlySalary: parseMoneyInput(monthlySalary),
       effectiveStartDate,
       otDayDivisor: divisor,
-      defaultSundayOffPolicy,
-      defaultSundayOffCount:
-        defaultSundayOffPolicy === "FIXED_COUNT" ? sundayOffCount : undefined,
+      defaultSundayOffPolicy: "ALL_SUNDAYS",
+      defaultSundayOffCount: undefined,
       notes: notes.trim(),
     });
 
     setMonthlySalary("");
     setEffectiveStartDate("");
     setOtDayDivisor("26");
-    setDefaultSundayOffPolicy("FIXED_COUNT");
-    setDefaultSundayOffCount("4");
     setNotes("");
   }
 
@@ -140,49 +150,8 @@ function SalaryConfigForm({
           />
         </label>
       </details>
-      <fieldset className="field-group sunday-selector">
-        <legend>Sunday rest days</legend>
-        <div className="choice-card-grid">
-          {[4, 5].map((count) => (
-            <label className="choice-card" key={count}>
-              <input
-                type="radio"
-                aria-label={`${count} Sundays`}
-                name="default-sunday-off-policy"
-                value={`FIXED_COUNT_${count}`}
-                checked={
-                  defaultSundayOffPolicy === "FIXED_COUNT" &&
-                  defaultSundayOffCount === String(count)
-                }
-                onChange={() => {
-                  setDefaultSundayOffPolicy("FIXED_COUNT");
-                  setDefaultSundayOffCount(String(count));
-                }}
-              />
-              <span>{count} Sundays</span>
-              <small>
-                {count === 4
-                  ? "Usual contractual default"
-                  : "Use when a month has five Sundays"}
-              </small>
-            </label>
-          ))}
-          <label className="choice-card">
-            <input
-              type="radio"
-              aria-label="All Sundays"
-              name="default-sunday-off-policy"
-              value="ALL_SUNDAYS"
-              checked={defaultSundayOffPolicy === "ALL_SUNDAYS"}
-              onChange={() => setDefaultSundayOffPolicy("ALL_SUNDAYS")}
-            />
-            <span>All Sundays</span>
-            <small>Automatically treats every Sunday as rest</small>
-          </label>
-        </div>
-      </fieldset>
       <label>
-        Notes
+        Salary notes
         <textarea
           value={notes}
           onChange={(event) => setNotes(event.target.value)}

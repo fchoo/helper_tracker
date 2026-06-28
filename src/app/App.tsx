@@ -7,10 +7,12 @@ import {
 import type { Advance, AdvanceDeduction } from "../features/advances/types";
 import {
   CalendarScreen,
-  type NewPublicHolidayInput,
   type NewTimeRecordInput,
 } from "../features/calendar/CalendarScreen";
-import type { PublicHoliday } from "../features/calendar/types";
+import type {
+  NewPublicHolidayInput,
+  PublicHoliday,
+} from "../features/calendar/types";
 import {
   ConfigScreen,
   type NewSalaryConfigInput,
@@ -140,6 +142,14 @@ export function App() {
     ]);
   }
 
+  function handleUpdateTimeRecord(record: TimeRecord) {
+    setTimeRecords((currentRecords) =>
+      currentRecords.map((currentRecord) =>
+        currentRecord.id === record.id ? record : currentRecord,
+      ),
+    );
+  }
+
   async function handleImportPublicHolidays(year: number) {
     const importedHolidays = await fetchSingaporePublicHolidays(year);
     setPublicHolidays((currentHolidays) =>
@@ -229,11 +239,8 @@ export function App() {
           selectedMonth={selectedMonth}
           publicHolidays={publicHolidays}
           timeRecords={timeRecords}
-          onImportPublicHolidays={handleImportPublicHolidays}
-          onAddPublicHoliday={handleAddPublicHoliday}
-          onUpdatePublicHoliday={handleUpdatePublicHoliday}
-          onDeletePublicHoliday={handleDeletePublicHoliday}
           onAddTimeRecord={handleAddTimeRecord}
+          onUpdateTimeRecord={handleUpdateTimeRecord}
         />
       );
     }
@@ -241,12 +248,18 @@ export function App() {
     if (routeId === "config") {
       return (
         <ConfigScreen
+          selectedMonth={selectedMonth}
           spreadsheetId={spreadsheetId}
           salaryConfigs={salaryConfigs}
+          publicHolidays={publicHolidays}
           onAddSalaryConfig={handleAddSalaryConfig}
           onConnectSpreadsheet={handleConnectSpreadsheet}
           onCreateSpreadsheet={handleCreateSpreadsheet}
           onCheckSpreadsheetHealth={handleCheckSpreadsheetHealth}
+          onImportPublicHolidays={handleImportPublicHolidays}
+          onAddPublicHoliday={handleAddPublicHoliday}
+          onUpdatePublicHoliday={handleUpdatePublicHoliday}
+          onDeletePublicHoliday={handleDeletePublicHoliday}
         />
       );
     }
