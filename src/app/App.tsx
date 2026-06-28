@@ -29,6 +29,7 @@ import {
 } from "../persistence/cacheDb";
 import { fetchSingaporePublicHolidays } from "../integrations/singapore/publicHolidays";
 import { normalizeGoogleClientId } from "../integrations/google/clientId";
+import { normalizeGoogleSpreadsheetId } from "../integrations/google/spreadsheetId";
 import {
   createGoogleTokenClient as createDefaultGoogleTokenClient,
   type AppGoogleTokenClient,
@@ -98,8 +99,14 @@ export function App({
   }
 
   function handleConnectSpreadsheet(nextSpreadsheetId: string) {
-    setSpreadsheetId(nextSpreadsheetId);
-    cachePreferences({ spreadsheetId: nextSpreadsheetId });
+    const normalizedSpreadsheetId = normalizeGoogleSpreadsheetId(nextSpreadsheetId);
+
+    if (!normalizedSpreadsheetId) {
+      throw new Error("Connect a real Google Spreadsheet ID.");
+    }
+
+    setSpreadsheetId(normalizedSpreadsheetId);
+    cachePreferences({ spreadsheetId: normalizedSpreadsheetId });
   }
 
   function handleSaveGoogleClientId(nextGoogleClientId: string) {
@@ -360,10 +367,15 @@ function readCreatedSpreadsheetId(spreadsheet: unknown): string {
     typeof spreadsheet === "object" &&
     spreadsheet !== null &&
     "spreadsheetId" in spreadsheet &&
-    typeof spreadsheet.spreadsheetId === "string" &&
-    spreadsheet.spreadsheetId
+    typeof spreadsheet.spreadsheetId === "string"
   ) {
-    return spreadsheet.spreadsheetId;
+    const normalizedSpreadsheetId = normalizeGoogleSpreadsheetId(
+      spreadsheet.spreadsheetId,
+    );
+
+    if (normalizedSpreadsheetId) {
+      return normalizedSpreadsheetId;
+    }
   }
 
   throw new Error("Google Sheets did not return a spreadsheet ID.");

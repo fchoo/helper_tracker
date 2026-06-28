@@ -15,6 +15,44 @@ describe("SpreadsheetSetup", () => {
     expect(onConnect).toHaveBeenCalledWith("sheet_123");
   });
 
+  it("rejects old local placeholder spreadsheet ids", async () => {
+    const onConnect = vi.fn();
+
+    render(<SpreadsheetSetup onConnect={onConnect} onCreate={vi.fn()} />);
+
+    await userEvent.type(
+      screen.getByLabelText("Google Spreadsheet ID"),
+      "local_c4495524-5185-423e-92ac-62ddb0a5f275",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Connect sheet" }));
+
+    expect(onConnect).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(
+        "That is an old local placeholder. Create or connect a real Google Sheet.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("does not display old local placeholders as connected sheets", () => {
+    render(
+      <SpreadsheetSetup
+        spreadsheetId="local_c4495524-5185-423e-92ac-62ddb0a5f275"
+        onConnect={vi.fn()}
+        onCreate={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.queryByText(/Connected to local_c4495524/),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Paste an existing Google Spreadsheet ID or create a new workbook.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("runs a setup health check for the connected spreadsheet", async () => {
     const onHealthCheck = vi.fn().mockResolvedValue({
       status: "healthy",

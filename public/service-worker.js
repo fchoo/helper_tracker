@@ -1,5 +1,5 @@
 /* global URL, caches, fetch, self */
-const CACHE_NAME = "helper-tracker-static-v2";
+const CACHE_NAME = "helper-tracker-static-v3";
 const APP_SHELL = ["./", "manifest.webmanifest", "pwa-icon.svg"].map((path) =>
   new URL(path, self.registration.scope).toString(),
 );
@@ -36,21 +36,8 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (event.request.mode === "navigate") {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          if (response.ok) {
-            const responseToCache = response.clone();
-            void caches
-              .open(CACHE_NAME)
-              .then((cache) => cache.put(event.request, responseToCache));
-          }
-
-          return response;
-        })
-        .catch(() => caches.match(event.request)),
-    );
+  if (event.request.mode === "navigate" || isFreshAssetRequest(event.request)) {
+    event.respondWith(fetchAndCache(event.request));
     return;
   }
 
@@ -73,3 +60,26 @@ self.addEventListener("fetch", (event) => {
     }),
   );
 });
+
+function isFreshAssetRequest(request) {
+  if (["script", "style", "worker"].includes(request.destination)) {
+    return true;
+  }
+
+  return /\.(?:css|js)$/i.test(new URL(request.url).pathname);
+}
+
+function fetchAndCache(request) {
+  return fetch(request)
+    .then((response) => {
+      if (response.ok) {
+        const responseToCache = response.clone();
+        void caches
+          .open(CACHE_NAME)
+          .then((cache) => cache.put(request, responseToCache));
+      }
+
+      return response;
+    })
+    .catch(() => caches.match(request));
+}

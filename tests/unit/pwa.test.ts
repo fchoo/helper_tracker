@@ -14,15 +14,35 @@ describe("getServiceWorkerUrl", () => {
 
 describe("registerServiceWorker", () => {
   it("registers the app service worker after the window load event", () => {
-    const register = vi.fn().mockResolvedValue({});
+    const register = vi.fn().mockResolvedValue({ update: vi.fn() });
+    const addEventListener = vi.fn();
     Object.defineProperty(navigator, "serviceWorker", {
       configurable: true,
-      value: { register },
+      value: { addEventListener, controller: null, register },
     });
 
     registerServiceWorker();
     window.dispatchEvent(new Event("load"));
 
     expect(register).toHaveBeenCalledWith(getServiceWorkerUrl());
+    expect(addEventListener).toHaveBeenCalledWith(
+      "controllerchange",
+      expect.any(Function),
+    );
+  });
+
+  it("checks for service worker updates after registration", async () => {
+    const update = vi.fn();
+    const register = vi.fn().mockResolvedValue({ update });
+    Object.defineProperty(navigator, "serviceWorker", {
+      configurable: true,
+      value: { addEventListener: vi.fn(), controller: null, register },
+    });
+
+    registerServiceWorker();
+    window.dispatchEvent(new Event("load"));
+    await Promise.resolve();
+
+    expect(update).toHaveBeenCalledTimes(1);
   });
 });

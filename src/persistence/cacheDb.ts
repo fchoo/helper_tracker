@@ -1,5 +1,6 @@
 import { isMonthKey } from "../lib/dates";
 import { normalizeGoogleClientId } from "../integrations/google/clientId";
+import { normalizeGoogleSpreadsheetId } from "../integrations/google/spreadsheetId";
 
 export type CachedAppPreferences = {
   spreadsheetId?: string;
@@ -18,7 +19,13 @@ export function getCachedAppPreferences(): CachedAppPreferences {
   }
 
   const parsed = JSON.parse(rawValue) as CachedAppPreferences;
-  return sanitizePreferences(parsed);
+  const sanitizedPreferences = sanitizePreferences(parsed);
+
+  if (JSON.stringify(sanitizedPreferences) !== rawValue) {
+    localStorage.setItem(cacheKey, JSON.stringify(sanitizedPreferences));
+  }
+
+  return sanitizedPreferences;
 }
 
 export function setCachedAppPreferences(preferences: CachedAppPreferences): void {
@@ -28,17 +35,18 @@ export function setCachedAppPreferences(preferences: CachedAppPreferences): void
 function sanitizePreferences(
   preferences: CachedAppPreferences,
 ): CachedAppPreferences {
+  const spreadsheetId = normalizeGoogleSpreadsheetId(preferences.spreadsheetId);
+  const googleClientId = normalizeGoogleClientId(preferences.googleClientId);
+
   return {
-    ...(preferences.spreadsheetId ? { spreadsheetId: preferences.spreadsheetId } : {}),
+    ...(spreadsheetId ? { spreadsheetId } : {}),
     ...(preferences.selectedMonth && isMonthKey(preferences.selectedMonth)
       ? { selectedMonth: preferences.selectedMonth }
       : {}),
     ...(isPayCycleStartDay(preferences.payCycleStartDay)
       ? { payCycleStartDay: preferences.payCycleStartDay }
       : {}),
-    ...(normalizeGoogleClientId(preferences.googleClientId)
-      ? { googleClientId: normalizeGoogleClientId(preferences.googleClientId) }
-      : {}),
+    ...(googleClientId ? { googleClientId } : {}),
   };
 }
 

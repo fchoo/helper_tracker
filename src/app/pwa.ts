@@ -8,7 +8,22 @@ export function registerServiceWorker(): void {
     return;
   }
 
+  const serviceWorker = navigator.serviceWorker;
+  const wasControlled = Boolean(serviceWorker.controller);
+  let isRefreshing = false;
+  serviceWorker.addEventListener("controllerchange", () => {
+    if (!wasControlled || isRefreshing) {
+      return;
+    }
+
+    isRefreshing = true;
+    window.location.reload();
+  });
+
   window.addEventListener("load", () => {
-    void navigator.serviceWorker.register(getServiceWorkerUrl());
+    void serviceWorker
+      .register(getServiceWorkerUrl())
+      .then((registration) => registration.update())
+      .catch(() => undefined);
   });
 }

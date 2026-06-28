@@ -49,6 +49,37 @@ describe("service worker", () => {
     expect(globalThis.__serviceWorkerFetchMock).toHaveBeenCalledWith(event.request);
     expect(cachesMock.match).not.toHaveBeenCalled();
   });
+
+  it("uses network-first responses for deployed JavaScript assets", async () => {
+    const listeners = loadServiceWorker();
+    const cachedResponse = new Response("old js");
+    const networkResponse = new Response("new js", {
+      headers: { "content-type": "application/javascript" },
+    });
+    const cachesMock = globalThis.__serviceWorkerCachesMock;
+
+    cachesMock.match.mockResolvedValue(cachedResponse);
+    cachesMock.open.mockResolvedValue({ put: vi.fn() });
+    globalThis.__serviceWorkerFetchMock.mockResolvedValue(networkResponse);
+
+    const scriptRequest = new Request(
+      "https://example.com/helper_tracker/assets/index-new.js",
+    );
+    Object.defineProperty(scriptRequest, "destination", { value: "script" });
+
+    const event: FetchEvent = {
+      request: scriptRequest,
+      respondWith(response) {
+        this.response = response;
+      },
+    };
+
+    listeners.fetch(event);
+
+    await expect(event.response).resolves.toBe(networkResponse);
+    expect(globalThis.__serviceWorkerFetchMock).toHaveBeenCalledWith(event.request);
+    expect(cachesMock.match).not.toHaveBeenCalled();
+  });
 });
 
 function loadServiceWorker() {

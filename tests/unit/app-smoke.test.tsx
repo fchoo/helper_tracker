@@ -86,6 +86,32 @@ describe("App", () => {
     expect(await screen.findByText("Connected to sheet_online")).toBeInTheDocument();
   });
 
+  it("does not connect legacy local ids returned by stale creation code", async () => {
+    const user = userEvent.setup();
+    const requestToken = vi.fn().mockResolvedValue("token_123");
+    const createGoogleTokenClient = vi.fn().mockReturnValue({ requestToken });
+    const createSpreadsheet = vi.fn().mockResolvedValue({
+      spreadsheetId: "local_c4495524-5185-423e-92ac-62ddb0a5f275",
+    });
+    const createGoogleSheetsClient = vi.fn().mockReturnValue({ createSpreadsheet });
+
+    render(
+      <App
+        googleClientId="1234567890-valid.apps.googleusercontent.com"
+        createGoogleTokenClient={createGoogleTokenClient}
+        createGoogleSheetsClient={createGoogleSheetsClient}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Config" }));
+    await user.click(screen.getByRole("button", { name: "Create new sheet" }));
+
+    expect(
+      await screen.findByText("Google Sheets did not return a spreadsheet ID."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Connected to local_c4495524/)).not.toBeInTheDocument();
+  });
+
   it("lets the user add a browser-local OAuth client id before creating a sheet", async () => {
     const user = userEvent.setup();
     const requestToken = vi.fn().mockResolvedValue("token_123");

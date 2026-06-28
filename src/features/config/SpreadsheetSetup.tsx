@@ -1,6 +1,10 @@
 import { FormEvent, useState } from "react";
 import { normalizeGoogleClientId } from "../../integrations/google/clientId";
 import {
+  isLegacyLocalSpreadsheetId,
+  normalizeGoogleSpreadsheetId,
+} from "../../integrations/google/spreadsheetId";
+import {
   buildUncheckedSpreadsheetHealth,
   checkSpreadsheetHealth,
   type SpreadsheetHealthCheck,
@@ -36,10 +40,11 @@ export function SpreadsheetSetup({
   const [isCheckingHealth, setIsCheckingHealth] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const canCreateSpreadsheet = isGoogleOAuthConfigured ?? true;
+  const connectedSpreadsheetId = normalizeGoogleSpreadsheetId(spreadsheetId);
   const displayedHealthCheck =
-    healthCheck && healthCheck.spreadsheetId === spreadsheetId
+    healthCheck && healthCheck.spreadsheetId === connectedSpreadsheetId
       ? healthCheck
-      : buildUncheckedSpreadsheetHealth(spreadsheetId);
+      : buildUncheckedSpreadsheetHealth(connectedSpreadsheetId);
 
   async function handleSaveGoogleClientId(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -65,15 +70,17 @@ export function SpreadsheetSetup({
   async function handleConnect(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmedSpreadsheetId = inputSpreadsheetId.trim();
+    const normalizedSpreadsheetId =
+      normalizeGoogleSpreadsheetId(trimmedSpreadsheetId);
 
-    if (!trimmedSpreadsheetId) {
-      setError("Enter a Google Spreadsheet ID.");
+    if (!normalizedSpreadsheetId) {
+      setError(getSpreadsheetIdValidationMessage(trimmedSpreadsheetId));
       return;
     }
 
     setError("");
-    await onConnect(trimmedSpreadsheetId);
-    setHealthCheck(buildUncheckedSpreadsheetHealth(trimmedSpreadsheetId));
+    await onConnect(normalizedSpreadsheetId);
+    setHealthCheck(buildUncheckedSpreadsheetHealth(normalizedSpreadsheetId));
     setInputSpreadsheetId("");
   }
 
@@ -100,7 +107,9 @@ export function SpreadsheetSetup({
   }
 
   async function handleHealthCheck() {
-    const targetSpreadsheetId = spreadsheetId ?? inputSpreadsheetId.trim();
+    const targetSpreadsheetId =
+      connectedSpreadsheetId ??
+      normalizeGoogleSpreadsheetId(inputSpreadsheetId.trim());
 
     if (!targetSpreadsheetId) {
       setError("Connect or create a Google Sheet before checking health.");
@@ -186,8 +195,8 @@ export function SpreadsheetSetup({
         <div className="setup-card">
           <span className="setup-step">{onSaveGoogleClientId ? "2" : "1"}</span>
           <h3>Connect workbook</h3>
-          {spreadsheetId ? (
-            <p className="connected-sheet">Connected to {spreadsheetId}</p>
+          {connectedSpreadsheetId ? (
+            <p className="connected-sheet">Connected to {connectedSpreadsheetId}</p>
           ) : (
             <p>Paste an existing Google Spreadsheet ID or create a new workbook.</p>
           )}
@@ -262,4 +271,12 @@ function formatHealthStatus(status: SpreadsheetHealthCheck["status"]): string {
   }
 
   return "Not connected";
+}
+
+function getSpreadsheetIdValidationMessage(spreadsheetId: string): string {
+  if (isLegacyLocalSpreadsheetId(spreadsheetId)) {
+    return "That is an old local placeholder. Create or connect a real Google Sheet.";
+  }
+
+  return "Enter a Google Spreadsheet ID.";
 }
