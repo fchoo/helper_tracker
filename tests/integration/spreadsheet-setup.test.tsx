@@ -15,6 +15,35 @@ describe("SpreadsheetSetup", () => {
     expect(onConnect).toHaveBeenCalledWith("sheet_123");
   });
 
+  it("runs a setup health check for the connected spreadsheet", async () => {
+    const onHealthCheck = vi.fn().mockResolvedValue({
+      status: "healthy",
+      spreadsheetId: "sheet_123",
+      checkedAt: "2026-06-28T12:00:00.000Z",
+      connectionLabel: "Sheet reachable",
+      schemaLabel: "Schema healthy",
+      detailItems: ["6 required tabs found", "45 required columns aligned"],
+      requiredSheetCount: 6,
+      requiredHeaderCount: 45,
+      missingSheetCount: 0,
+      headerIssueCount: 0,
+    });
+
+    render(
+      <SpreadsheetSetup
+        spreadsheetId="sheet_123"
+        onConnect={vi.fn()}
+        onCreate={vi.fn()}
+        onHealthCheck={onHealthCheck}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Run health check" }));
+
+    expect(onHealthCheck).toHaveBeenCalledWith("sheet_123");
+    expect(await screen.findByText("Schema healthy")).toBeInTheDocument();
+  });
+
   it("creates a new spreadsheet", async () => {
     const onCreate = vi.fn().mockResolvedValue(undefined);
 

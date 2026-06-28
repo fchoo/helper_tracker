@@ -6,6 +6,7 @@ import {
 import type { SalaryConfig } from "../config/types";
 import { countTimeRecordsForMonth } from "../time-records/timeRecordMath";
 import type { MonthlyPayoutInput, MonthlySummary } from "./types";
+import { getMonthDateRange, isMonthKey } from "../../lib/dates";
 import { roundMoney } from "../../lib/money";
 
 export function selectEffectiveSalaryConfig(
@@ -35,6 +36,9 @@ export function calculateMonthlyPayout(
   const baseSalary = config?.monthlySalary ?? 0;
   const otDayDivisor = config?.otDayDivisor ?? 26;
   const dailyRate = roundMoney(baseSalary / otDayDivisor);
+  const sundayCount = countSundaysInMonth(input.month);
+  const defaultSundayOffDays = resolveDefaultSundayOffDays(config, sundayCount);
+  const extraSundayCount = Math.max(0, sundayCount - defaultSundayOffDays);
   const counts = countTimeRecordsForMonth(input.timeRecords, input.month);
   const sundayOtAmount = roundMoney(counts.sundayOtDays * dailyRate);
   const publicHolidayWorkAmount = roundMoney(
@@ -57,6 +61,9 @@ export function calculateMonthlyPayout(
     month: input.month,
     baseSalary,
     dailyRate,
+    sundayCount,
+    defaultSundayOffDays,
+    extraSundayCount,
     sundayOtDays: counts.sundayOtDays,
     publicHolidayWorkDays: counts.publicHolidayWorkDays,
     unpaidOffDays: counts.unpaidOffDays,
@@ -68,4 +75,36 @@ export function calculateMonthlyPayout(
     configEffectiveStartDate: config?.effectiveStartDate,
     calculatedAt: new Date().toISOString(),
   };
+}
+
+function resolveDefaultSundayOffDays(
+  config: SalaryConfig | undefined,
+  sundayCount: number,
+): number {
+  if (config?.defaultSundayOffPolicy === "ALL_SUNDAYS") {
+    return sundayCount;
+  }
+
+  return Math.min(config?.defaultSundayOffCount ?? 4, sundayCount);
+}
+
+function countSundaysInMonth(month: string): number {
+  if (!isMonthKey(month)) {
+    return 0;
+  }
+
+  const range = getMonthDateRange(month);
+  const current = new Date(`${range.startDate}T00:00:00.000Z`);
+  const end = new Date(`${range.endDate}T00:00:00.000Z`);
+  let count = 0;
+
+  while (current <= end) {
+    if (current.getUTCDay() === 0) {
+      count += 1;
+    }
+
+    current.setUTCDate(current.getUTCDate() + 1);
+  }
+
+  return count;
 }

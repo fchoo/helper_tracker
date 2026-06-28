@@ -27,13 +27,23 @@ describe("CalendarScreen", () => {
             notes: "Worked",
             createdAt: "2026-06-27T12:00:00.000Z",
           },
+          {
+            id: "time_2",
+            type: "OFF_DAY",
+            startDate: "2026-07-31",
+            endDate: "2026-08-02",
+            isPaidOffDay: false,
+            notes: "Overlapping off day",
+            createdAt: "2026-06-27T12:00:00.000Z",
+          },
         ]}
       />,
     );
 
     expect(screen.getByText("National Day")).toBeInTheDocument();
     expect(screen.getAllByText("Sunday").length).toBeGreaterThan(0);
-    expect(screen.getByText("Sunday OT")).toBeInTheDocument();
+    expect(screen.getAllByText("Sunday OT").length).toBeGreaterThan(0);
+    expect(screen.getByText("Overlapping off day")).toBeInTheDocument();
   });
 
   it("imports and manages public holidays", async () => {
@@ -86,5 +96,48 @@ describe("CalendarScreen", () => {
       screen.getByRole("button", { name: "Delete Family holiday updated" }),
     );
     expect(screen.queryByText("Family holiday updated")).not.toBeInTheDocument();
+  });
+
+  it("refreshes managed holidays when parent state changes", () => {
+    const { rerender } = render(
+      <CalendarScreen
+        selectedMonth="2026-08"
+        publicHolidays={[]}
+        timeRecords={[]}
+        onAddPublicHoliday={async (holiday) => ({
+          ...holiday,
+          id: "manual_1",
+          year: Number(holiday.date.slice(0, 4)),
+          source: "MANUAL",
+          createdAt: "2026-06-27T12:00:00.000Z",
+        })}
+      />,
+    );
+
+    rerender(
+      <CalendarScreen
+        selectedMonth="2026-08"
+        publicHolidays={[
+          {
+            id: "holiday_1",
+            name: "Parent loaded holiday",
+            date: "2026-08-09",
+            year: 2026,
+            source: "SINGAPORE_IMPORT",
+            createdAt: "2026-06-27T12:00:00.000Z",
+          },
+        ]}
+        timeRecords={[]}
+        onAddPublicHoliday={async (holiday) => ({
+          ...holiday,
+          id: "manual_1",
+          year: Number(holiday.date.slice(0, 4)),
+          source: "MANUAL",
+          createdAt: "2026-06-27T12:00:00.000Z",
+        })}
+      />,
+    );
+
+    expect(screen.getAllByText("Parent loaded holiday").length).toBeGreaterThan(0);
   });
 });

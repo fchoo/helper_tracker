@@ -31,16 +31,19 @@ describe("AdvancesScreen", () => {
         deductions={[]}
         selectedMonth="2026-06"
         onAddAdvance={onAddAdvance}
+        onUpdateAdvance={vi.fn()}
       />,
     );
 
+    await userEvent.click(screen.getByRole("button", { name: "Add advance" }));
     await userEvent.type(screen.getByLabelText("Advance date"), "2026-06-01");
-    await userEvent.type(screen.getByLabelText("Amount"), "300");
+    await userEvent.type(screen.getByLabelText("Advance amount"), "300");
     await userEvent.type(screen.getByLabelText("Description"), "Loan");
-    await userEvent.type(
-      screen.getByLabelText("Deduction schedule"),
-      "2026-06: 100\n2026-07: 200",
-    );
+    await userEvent.type(screen.getByLabelText("Deduction month 1"), "2026-06");
+    await userEvent.type(screen.getByLabelText("Deduction amount 1"), "100");
+    await userEvent.click(screen.getByRole("button", { name: "Add deduction month" }));
+    await userEvent.type(screen.getByLabelText("Deduction month 2"), "2026-07");
+    await userEvent.type(screen.getByLabelText("Deduction amount 2"), "200");
     await userEvent.click(screen.getByRole("button", { name: "Save advance" }));
 
     expect(onAddAdvance).toHaveBeenCalledWith(
@@ -56,6 +59,8 @@ describe("AdvancesScreen", () => {
         ],
       }),
     );
+    expect(screen.getByRole("status")).toHaveTextContent("Advance saved.");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("shows selected-month advance deduction total", () => {
@@ -81,11 +86,68 @@ describe("AdvancesScreen", () => {
           },
         ]}
         onAddAdvance={vi.fn()}
+        onUpdateAdvance={vi.fn()}
       />,
     );
 
     expect(
-      screen.getByText("Selected month deductions: SGD 100.00"),
+      screen.getByText("Deducted in 2026-06: SGD 100.00"),
     ).toBeInTheDocument();
+  });
+
+  it("edits an existing advance in a popup form", async () => {
+    const onUpdateAdvance = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <AdvancesScreen
+        selectedMonth="2026-06"
+        advances={[
+          {
+            id: "adv_1",
+            date: "2026-06-01",
+            amount: 300,
+            description: "Loan",
+            createdAt: "2026-06-27T12:00:00.000Z",
+          },
+        ]}
+        deductions={[
+          {
+            id: "ded_1",
+            advanceId: "adv_1",
+            month: "2026-06",
+            amount: 300,
+            notes: "Original",
+            createdAt: "2026-06-27T12:00:00.000Z",
+          },
+        ]}
+        onAddAdvance={vi.fn()}
+        onUpdateAdvance={onUpdateAdvance}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    expect(screen.getByRole("dialog", { name: "Edit advance" })).toBeInTheDocument();
+
+    await userEvent.clear(screen.getByLabelText("Advance amount"));
+    await userEvent.type(screen.getByLabelText("Advance amount"), "250");
+    await userEvent.clear(screen.getByLabelText("Description"));
+    await userEvent.type(screen.getByLabelText("Description"), "Updated loan");
+    await userEvent.clear(screen.getByLabelText("Deduction amount 1"));
+    await userEvent.type(screen.getByLabelText("Deduction amount 1"), "250");
+    await userEvent.click(screen.getByRole("button", { name: "Update advance" }));
+
+    expect(onUpdateAdvance).toHaveBeenCalledWith(
+      expect.objectContaining({
+        advanceId: "adv_1",
+        advance: expect.objectContaining({
+          date: "2026-06-01",
+          amount: 250,
+          description: "Updated loan",
+        }),
+        deductions: [{ month: "2026-06", amount: 250, notes: "Original" }],
+      }),
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Advance updated.");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });

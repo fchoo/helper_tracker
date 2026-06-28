@@ -14,11 +14,14 @@ describe("domain validation schemas", () => {
       monthlySalary: 900,
       effectiveStartDate: "2026-06-01",
       otDayDivisor: 26,
+      defaultSundayOffPolicy: "FIXED_COUNT",
+      defaultSundayOffCount: 4,
       notes: "",
       createdAt: "2026-06-27T12:00:00.000Z",
     });
 
     expect(result.monthlySalary).toBe(900);
+    expect(result.defaultSundayOffCount).toBe(4);
   });
 
   it("rejects a salary config with invalid money", () => {

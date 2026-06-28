@@ -15,6 +15,8 @@ describe("ConfigScreen", () => {
             monthlySalary: 850,
             effectiveStartDate: "2026-01-01",
             otDayDivisor: 26,
+            defaultSundayOffPolicy: "FIXED_COUNT",
+            defaultSundayOffCount: 4,
             notes: "Existing",
             createdAt: "2026-06-27T12:00:00.000Z",
           },
@@ -30,14 +32,34 @@ describe("ConfigScreen", () => {
     await userEvent.clear(screen.getByLabelText("OT day divisor"));
     await userEvent.type(screen.getByLabelText("OT day divisor"), "26");
     await userEvent.type(screen.getByLabelText("Notes"), "June salary");
-    await userEvent.click(screen.getByRole("button", { name: "Save salary version" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save salary plan" }));
 
     expect(onAddSalaryConfig).toHaveBeenCalledWith(
       expect.objectContaining({
         monthlySalary: 900,
         effectiveStartDate: "2026-06-01",
         otDayDivisor: 26,
+        defaultSundayOffPolicy: "FIXED_COUNT",
+        defaultSundayOffCount: 4,
         notes: "June salary",
+      }),
+    );
+  });
+
+  it("allows all Sundays off as the default monthly policy", async () => {
+    const onAddSalaryConfig = vi.fn().mockResolvedValue(undefined);
+
+    render(<ConfigScreen salaryConfigs={[]} onAddSalaryConfig={onAddSalaryConfig} />);
+
+    await userEvent.type(screen.getByLabelText("Monthly salary"), "900");
+    await userEvent.type(screen.getByLabelText("Effective start date"), "2026-06-01");
+    await userEvent.click(screen.getByLabelText("All Sundays"));
+    await userEvent.click(screen.getByRole("button", { name: "Save salary plan" }));
+
+    expect(onAddSalaryConfig).toHaveBeenCalledWith(
+      expect.objectContaining({
+        defaultSundayOffPolicy: "ALL_SUNDAYS",
+        defaultSundayOffCount: undefined,
       }),
     );
   });
@@ -47,7 +69,7 @@ describe("ConfigScreen", () => {
 
     render(<ConfigScreen salaryConfigs={[]} onAddSalaryConfig={onAddSalaryConfig} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Save salary version" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save salary plan" }));
 
     expect(onAddSalaryConfig).not.toHaveBeenCalled();
     expect(screen.getByText("Monthly salary is required.")).toBeInTheDocument();
@@ -72,5 +94,23 @@ describe("ConfigScreen", () => {
     await userEvent.click(screen.getByRole("button", { name: "Connect sheet" }));
 
     expect(onConnectSpreadsheet).toHaveBeenCalledWith("sheet_next");
+  });
+
+  it("uses preset Sunday off choices for fixed five-Sunday months", async () => {
+    const onAddSalaryConfig = vi.fn().mockResolvedValue(undefined);
+
+    render(<ConfigScreen salaryConfigs={[]} onAddSalaryConfig={onAddSalaryConfig} />);
+
+    await userEvent.type(screen.getByLabelText("Monthly salary"), "900");
+    await userEvent.type(screen.getByLabelText("Effective start date"), "2026-06-01");
+    await userEvent.click(screen.getByLabelText("5 Sundays"));
+    await userEvent.click(screen.getByRole("button", { name: "Save salary plan" }));
+
+    expect(onAddSalaryConfig).toHaveBeenCalledWith(
+      expect.objectContaining({
+        defaultSundayOffPolicy: "FIXED_COUNT",
+        defaultSundayOffCount: 5,
+      }),
+    );
   });
 });

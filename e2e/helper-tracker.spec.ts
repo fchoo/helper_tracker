@@ -18,40 +18,47 @@ test("tracks a monthly helper payout from setup through salary review", async ({
   await page.getByLabel("Google Spreadsheet ID").fill("sheet_e2e");
   await page.getByRole("button", { name: "Connect sheet" }).click();
   await expect(page.getByText("Connected to sheet_e2e")).toBeVisible();
+  await page.getByRole("button", { name: "Run health check" }).click();
+  await expect(page.getByText("Schema template ready")).toBeVisible();
 
   await page.getByLabel("Monthly salary").fill("900");
   await page.getByLabel("Effective start date").fill("2026-01-01");
   await page.getByLabel("OT day divisor").fill("26");
   await page.getByLabel("Notes").fill("Current contract");
-  await page.getByRole("button", { name: "Save salary version" }).click();
+  await page.getByRole("button", { name: "Save salary plan" }).click();
   await expect(page.getByText("SGD 900.00")).toBeVisible();
 
   await page.getByRole("button", { name: "Advances" }).click();
+  await page.getByRole("button", { name: "Add advance" }).click();
   await page.getByLabel("Advance date").fill("2026-08-02");
-  await page.getByLabel("Amount").fill("300");
+  await page.getByLabel("Advance amount").fill("300");
   await page.getByLabel("Description").fill("School expense");
-  await page.getByLabel("Deduction schedule").fill("2026-08: 100\n2026-09: 200");
+  await page.getByLabel("Deduction month 1").fill("2026-08");
+  await page.getByLabel("Deduction amount 1").fill("100");
+  await page.getByRole("button", { name: "Add deduction month" }).click();
+  await page.getByLabel("Deduction month 2").fill("2026-09");
+  await page.getByLabel("Deduction amount 2").fill("200");
   await page.getByRole("button", { name: "Save advance" }).click();
-  await expect(page.getByText("Selected month deductions: SGD 100.00")).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("Advance saved.");
+  await expect(page.getByText("Deducted in 2026-08: SGD 100.00")).toBeVisible();
 
-  await page.getByRole("button", { name: "Time" }).click();
+  await page.getByRole("button", { name: "Time & Calendar" }).click();
   await page.getByLabel("Record type").selectOption("SUNDAY_OT");
   await page.getByLabel("Start date").fill("2026-08-09");
   await page.getByLabel("End date").fill("2026-08-09");
-  await page.getByLabel("Notes").fill("Worked Sunday");
+  await page.getByLabel("Time notes").fill("Worked Sunday");
   await page.getByRole("button", { name: "Save time record" }).click();
-  await expect(page.getByText("Sunday OT: 1")).toBeVisible();
+  await expect(summaryItem(page, "Sunday OT")).toContainText("1");
 
   await page.getByLabel("Record type").selectOption("PUBLIC_HOLIDAY_WORK");
   await page.getByLabel("Start date").fill("2026-08-10");
   await page.getByLabel("End date").fill("2026-08-10");
-  await page.getByLabel("Notes").fill("Worked public holiday");
+  await page.getByLabel("Time notes").fill("Worked public holiday");
   await page.getByRole("button", { name: "Save time record" }).click();
   await expect(
-    page.getByRole("list").getByText("Public holiday work"),
+    page.getByLabel("Time records").getByText("Public holiday work"),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "Calendar" }).click();
   await page.getByLabel("Holiday name").fill("National Day");
   await page.getByLabel("Holiday date").fill("2026-08-09");
   await page.getByRole("button", { name: "Add public holiday" }).click();
@@ -61,11 +68,13 @@ test("tracks a monthly helper payout from setup through salary review", async ({
 
   await page.getByRole("button", { name: "Salary" }).click();
   await expect(summaryItem(page, "Base salary")).toContainText("SGD 900.00");
-  await expect(summaryItem(page, "Sunday OT days")).toContainText("1");
-  await expect(summaryItem(page, "Sunday OT amount")).toContainText("SGD 34.62");
+  await expect(summaryItem(page, "Sunday overtime")).toContainText("1 days");
+  await expect(summaryItem(page, "Sunday overtime")).toContainText("SGD 34.62");
   await expect(summaryItem(page, "Public holiday work")).toContainText("SGD 34.62");
   await expect(summaryItem(page, "Advance deductions")).toContainText("SGD 100.00");
-  await expect(summaryItem(page, "Final payout")).toContainText("SGD 869.24");
+  await expect(page.getByLabel("Pay decision")).toContainText("SGD 869.24");
+  await expect(page.getByText("Final payout")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Salary plan history" })).toBeVisible();
   await expect(page.getByText("School expense")).toBeVisible();
   await expect(page.getByText("Worked Sunday")).toBeVisible();
 });
@@ -88,7 +97,7 @@ async function assertResponsiveShell(
 ) {
   await page.setViewportSize(viewport);
   await page.reload();
-  await page.getByRole("button", { name: "Calendar" }).click();
+  await page.getByRole("button", { name: "Time & Calendar" }).click();
 
   const navPosition = await page.locator(".primary-nav").evaluate((element) =>
     getComputedStyle(element).position,
@@ -100,5 +109,7 @@ async function assertResponsiveShell(
   );
   expect(hasHorizontalOverflow).toBe(false);
 
-  await expect(page.getByRole("heading", { name: "Calendar" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Time & Calendar" }),
+  ).toBeVisible();
 }

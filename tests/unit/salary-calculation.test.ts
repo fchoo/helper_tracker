@@ -68,6 +68,9 @@ describe("calculateMonthlyPayout", () => {
       month: "2026-06",
       baseSalary: 900,
       dailyRate: 34.62,
+      sundayCount: 4,
+      defaultSundayOffDays: 4,
+      extraSundayCount: 0,
       sundayOtDays: 1,
       publicHolidayWorkDays: 1,
       unpaidOffDays: 2,
@@ -93,6 +96,41 @@ describe("calculateMonthlyPayout", () => {
     expect(summary.unpaidOffDays).toBe(0);
     expect(summary.unpaidOffDayDeduction).toBe(0);
     expect(summary.finalPayout).toBe(900);
+  });
+
+  it("surfaces five-Sunday months when only four Sundays are default off days", () => {
+    const summary = calculateMonthlyPayout({
+      month: "2026-08",
+      salaryConfigs: [config("cfg_1", 900, "2026-01-01")],
+      advances: [],
+      advanceDeductions: [],
+      timeRecords: [],
+      publicHolidays: [],
+    });
+
+    expect(summary.sundayCount).toBe(5);
+    expect(summary.defaultSundayOffDays).toBe(4);
+    expect(summary.extraSundayCount).toBe(1);
+  });
+
+  it("can treat all Sundays in the month as default off days", () => {
+    const summary = calculateMonthlyPayout({
+      month: "2026-08",
+      salaryConfigs: [
+        {
+          ...config("cfg_1", 900, "2026-01-01"),
+          defaultSundayOffPolicy: "ALL_SUNDAYS",
+        },
+      ],
+      advances: [],
+      advanceDeductions: [],
+      timeRecords: [],
+      publicHolidays: [],
+    });
+
+    expect(summary.sundayCount).toBe(5);
+    expect(summary.defaultSundayOffDays).toBe(5);
+    expect(summary.extraSundayCount).toBe(0);
   });
 
   it("counts only the portion of a time range that overlaps the selected month", () => {

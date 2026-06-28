@@ -9,24 +9,43 @@ export class SheetsRepository {
   ) {}
 
   async listSalaryConfigs(): Promise<SalaryConfig[]> {
-    const rows = await this.getDataRows("Config!A:F");
-    return rows.map((row) => ({
-      id: cellString(row[0]),
-      monthlySalary: cellNumber(row[1]),
-      effectiveStartDate: cellString(row[2]),
-      otDayDivisor: cellNumber(row[3]),
-      notes: cellString(row[4]) || undefined,
-      createdAt: cellString(row[5]),
-    }));
+    const rows = await this.getDataRows("Config!A:H");
+    return rows.map((row) => {
+      const policy = cellString(row[4]);
+
+      if (policy === "FIXED_COUNT" || policy === "ALL_SUNDAYS") {
+        return {
+          id: cellString(row[0]),
+          monthlySalary: cellNumber(row[1]),
+          effectiveStartDate: cellString(row[2]),
+          otDayDivisor: cellNumber(row[3]),
+          defaultSundayOffPolicy: policy,
+          defaultSundayOffCount: cellNumber(row[5]) || undefined,
+          notes: cellString(row[6]) || undefined,
+          createdAt: cellString(row[7]),
+        };
+      }
+
+      return {
+        id: cellString(row[0]),
+        monthlySalary: cellNumber(row[1]),
+        effectiveStartDate: cellString(row[2]),
+        otDayDivisor: cellNumber(row[3]),
+        notes: cellString(row[4]) || undefined,
+        createdAt: cellString(row[5]),
+      };
+    });
   }
 
   addSalaryConfig(config: SalaryConfig): Promise<unknown> {
-    return this.client.appendValues(this.spreadsheetId, "Config!A:F", [
+    return this.client.appendValues(this.spreadsheetId, "Config!A:H", [
       [
         config.id,
         config.monthlySalary,
         config.effectiveStartDate,
         config.otDayDivisor,
+        config.defaultSundayOffPolicy ?? "FIXED_COUNT",
+        config.defaultSundayOffCount ?? 4,
         config.notes ?? "",
         config.createdAt,
       ],

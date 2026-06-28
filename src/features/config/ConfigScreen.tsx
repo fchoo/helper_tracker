@@ -1,7 +1,9 @@
 import { FormEvent, useState } from "react";
-import type { SalaryConfig } from "./types";
-import { formatSgd, parseMoneyInput } from "../../lib/money";
+import type { SalaryConfig, SundayOffPolicy } from "./types";
+import { parseMoneyInput } from "../../lib/money";
+import { SalaryPlanHistory } from "./SalaryPlanHistory";
 import { SpreadsheetSetup } from "./SpreadsheetSetup";
+import type { SpreadsheetHealthCheck } from "./spreadsheetHealth";
 
 export type NewSalaryConfigInput = Omit<SalaryConfig, "id" | "createdAt">;
 
@@ -11,6 +13,7 @@ export type ConfigScreenProps = {
   onAddSalaryConfig: (config: NewSalaryConfigInput) => Promise<void> | void;
   onConnectSpreadsheet?: (spreadsheetId: string) => Promise<void> | void;
   onCreateSpreadsheet?: () => Promise<void> | void;
+  onCheckSpreadsheetHealth?: (spreadsheetId: string) => Promise<SpreadsheetHealthCheck> | SpreadsheetHealthCheck;
 };
 
 export function ConfigScreen({
@@ -19,21 +22,28 @@ export function ConfigScreen({
   onAddSalaryConfig,
   onConnectSpreadsheet,
   onCreateSpreadsheet,
+  onCheckSpreadsheetHealth,
 }: ConfigScreenProps) {
   return (
     <section aria-labelledby="config-title" className="screen">
       <header className="screen-header">
-        <h2 id="config-title">Configuration</h2>
+        <div>
+          <h2 id="config-title">Configuration</h2>
+          <p>Set up the Google Sheet, salary plan, and default off-day rules.</p>
+        </div>
       </header>
       {onConnectSpreadsheet && onCreateSpreadsheet ? (
         <SpreadsheetSetup
           spreadsheetId={spreadsheetId}
           onConnect={onConnectSpreadsheet}
           onCreate={onCreateSpreadsheet}
+          onHealthCheck={onCheckSpreadsheetHealth}
         />
       ) : null}
-      <SalaryConfigForm onSubmit={onAddSalaryConfig} />
-      <SalaryConfigList salaryConfigs={salaryConfigs} />
+      <div className="config-layout">
+        <SalaryConfigForm onSubmit={onAddSalaryConfig} />
+        <SalaryConfigList salaryConfigs={salaryConfigs} />
+      </div>
     </section>
   );
 }
@@ -46,6 +56,9 @@ function SalaryConfigForm({
   const [monthlySalary, setMonthlySalary] = useState("");
   const [effectiveStartDate, setEffectiveStartDate] = useState("");
   const [otDayDivisor, setOtDayDivisor] = useState("26");
+  const [defaultSundayOffPolicy, setDefaultSundayOffPolicy] =
+    useState<SundayOffPolicy>("FIXED_COUNT");
+  const [defaultSundayOffCount, setDefaultSundayOffCount] = useState("4");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
 
@@ -69,17 +82,32 @@ function SalaryConfigForm({
       return;
     }
 
+    const sundayOffCount = Number(defaultSundayOffCount);
+
+    if (
+      defaultSundayOffPolicy === "FIXED_COUNT" &&
+      (!Number.isInteger(sundayOffCount) || sundayOffCount < 0 || sundayOffCount > 5)
+    ) {
+      setError("Default Sunday off count must be between 0 and 5.");
+      return;
+    }
+
     setError("");
     await onSubmit({
       monthlySalary: parseMoneyInput(monthlySalary),
       effectiveStartDate,
       otDayDivisor: divisor,
+      defaultSundayOffPolicy,
+      defaultSundayOffCount:
+        defaultSundayOffPolicy === "FIXED_COUNT" ? sundayOffCount : undefined,
       notes: notes.trim(),
     });
 
     setMonthlySalary("");
     setEffectiveStartDate("");
     setOtDayDivisor("26");
+    setDefaultSundayOffPolicy("FIXED_COUNT");
+    setDefaultSundayOffCount("4");
     setNotes("");
   }
 
@@ -109,6 +137,47 @@ function SalaryConfigForm({
           onChange={(event) => setOtDayDivisor(event.target.value)}
         />
       </label>
+      <fieldset className="field-group sunday-selector">
+        <legend>Default Sunday off days</legend>
+        <div className="choice-card-grid">
+          {[4, 5].map((count) => (
+            <label className="choice-card" key={count}>
+              <input
+                type="radio"
+                aria-label={`${count} Sundays`}
+                name="default-sunday-off-policy"
+                value={`FIXED_COUNT_${count}`}
+                checked={
+                  defaultSundayOffPolicy === "FIXED_COUNT" &&
+                  defaultSundayOffCount === String(count)
+                }
+                onChange={() => {
+                  setDefaultSundayOffPolicy("FIXED_COUNT");
+                  setDefaultSundayOffCount(String(count));
+                }}
+              />
+              <span>{count} Sundays</span>
+              <small>
+                {count === 4
+                  ? "Usual monthly default"
+                  : "Use when a month has five Sundays"}
+              </small>
+            </label>
+          ))}
+          <label className="choice-card">
+            <input
+              type="radio"
+              aria-label="All Sundays"
+              name="default-sunday-off-policy"
+              value="ALL_SUNDAYS"
+              checked={defaultSundayOffPolicy === "ALL_SUNDAYS"}
+              onChange={() => setDefaultSundayOffPolicy("ALL_SUNDAYS")}
+            />
+            <span>All Sundays</span>
+            <small>Automatically adapts to each month</small>
+          </label>
+        </div>
+      </fieldset>
       <label>
         Notes
         <textarea
@@ -117,7 +186,7 @@ function SalaryConfigForm({
         />
       </label>
       {error ? <p role="alert">{error}</p> : null}
-      <button type="submit">Save salary version</button>
+      <button type="submit">Save salary plan</button>
     </form>
   );
 }
@@ -127,27 +196,18 @@ function SalaryConfigList({
 }: {
   salaryConfigs: SalaryConfig[];
 }) {
-  if (!salaryConfigs.length) {
-    return <p>No salary configurations saved yet.</p>;
-  }
-
-  const sortedConfigs = [...salaryConfigs].sort((a, b) =>
-    b.effectiveStartDate.localeCompare(a.effectiveStartDate),
-  );
-
   return (
-    <section aria-labelledby="salary-history-title">
-      <h3 id="salary-history-title">Salary version history</h3>
-      <ul className="record-list">
-        {sortedConfigs.map((config) => (
-          <li key={config.id}>
-            <strong>{formatSgd(config.monthlySalary)}</strong>
-            <span>Effective {config.effectiveStartDate}</span>
-            <span>Divisor {config.otDayDivisor}</span>
-            {config.notes ? <span>{config.notes}</span> : null}
-          </li>
-        ))}
-      </ul>
+    <section aria-labelledby="salary-history-title" className="salary-history-panel">
+      <div className="panel-header">
+        <div>
+          <h3 id="salary-history-title">Salary plan history</h3>
+          <p>Each saved plan stays as an audit trail for future payroll checks.</p>
+        </div>
+      </div>
+      <SalaryPlanHistory
+        salaryConfigs={salaryConfigs}
+        emptyMessage="No salary plans saved yet."
+      />
     </section>
   );
 }

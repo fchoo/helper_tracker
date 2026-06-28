@@ -7,6 +7,9 @@ export type MonthlySummary = {
   month: string;
   baseSalary: number;
   dailyRate: number;
+  sundayCount: number;
+  defaultSundayOffDays: number;
+  extraSundayCount: number;
   sundayOtDays: number;
   publicHolidayWorkDays: number;
   unpaidOffDays: number;

@@ -3,7 +3,10 @@ import type { Advance, AdvanceDeduction } from "../advances/types";
 import type { PublicHoliday } from "../calendar/types";
 import type { SalaryConfig } from "../config/types";
 import type { TimeRecord } from "../time-records/types";
+import { timeRecordOverlapsMonth } from "../time-records/timeRecordMath";
 import { calculateMonthlyPayout } from "./calculateMonthlyPayout";
+import { SalaryPlanHistory } from "../config/SalaryPlanHistory";
+import { isMonthKey } from "../../lib/dates";
 import { formatSgd } from "../../lib/money";
 
 export type SalaryScreenProps = {
@@ -50,40 +53,99 @@ export function SalaryScreen({
   const includedAdvances = advances.filter((advance) =>
     includedAdvanceIds.has(advance.id),
   );
-  const includedTimeRecords = timeRecords.filter((record) =>
-    record.startDate.startsWith(selectedMonth) || record.endDate.startsWith(selectedMonth),
+  const includedDeductions = advanceDeductions.filter(
+    (deduction) => deduction.month === selectedMonth,
   );
+  const includedTimeRecords = timeRecords.filter((record) =>
+    timeRecordOverlapsMonth(record, selectedMonth),
+  );
+  const expectedPayDate = getExpectedPayDate(selectedMonth);
 
   return (
     <section aria-labelledby="salary-title" className="screen">
       <header className="screen-header">
-        <h2 id="salary-title">Salary</h2>
-        <p>{selectedMonth}</p>
+        <div>
+          <h2 id="salary-title">Salary</h2>
+          <p>Review {selectedMonth} and pay by {expectedPayDate}</p>
+        </div>
       </header>
+      <section className="pay-panel" aria-label="Pay decision">
+        <div>
+          <span>Amount to pay</span>
+          <strong>{formatSgd(summary.finalPayout)}</strong>
+        </div>
+        <dl>
+          <div>
+            <dt>Pay by</dt>
+            <dd>{expectedPayDate}</dd>
+          </div>
+          <div>
+            <dt>Salary version</dt>
+            <dd>{summary.configEffectiveStartDate ?? "Not configured"}</dd>
+          </div>
+          <div>
+            <dt>Default Sundays off</dt>
+            <dd>
+              {summary.defaultSundayOffDays} of {summary.sundayCount}
+              {summary.extraSundayCount
+                ? `, ${summary.extraSundayCount} extra Sunday to decide`
+                : ""}
+            </dd>
+          </div>
+        </dl>
+      </section>
       <section className="summary-grid" aria-label="Monthly salary summary">
-        <SummaryItem label="Final payout" value={formatSgd(summary.finalPayout)} />
         <SummaryItem label="Base salary" value={formatSgd(summary.baseSalary)} />
         <SummaryItem label="Daily rate" value={formatSgd(summary.dailyRate)} />
-        <SummaryItem label="Sunday OT days" value={String(summary.sundayOtDays)} />
         <SummaryItem
-          label="Sunday OT amount"
-          value={formatSgd(summary.sundayOtAmount)}
+          label="Sunday overtime"
+          value={`${summary.sundayOtDays} days, ${formatSgd(summary.sundayOtAmount)}`}
         />
         <SummaryItem
           label="Public holiday work"
-          value={formatSgd(summary.publicHolidayWorkAmount)}
+          value={`${summary.publicHolidayWorkDays} days, ${formatSgd(summary.publicHolidayWorkAmount)}`}
         />
         <SummaryItem
           label="Unpaid off day deduction"
-          value={formatSgd(summary.unpaidOffDayDeduction)}
+          value={`${summary.unpaidOffDays} days, ${formatSgd(summary.unpaidOffDayDeduction)}`}
         />
         <SummaryItem
           label="Advance deductions"
           value={formatSgd(summary.totalAdvanceDeductions)}
         />
       </section>
+      <section aria-labelledby="salary-breakdown-title" className="breakdown-panel">
+        <h3 id="salary-breakdown-title">Payout breakdown</h3>
+        <dl className="line-items">
+          <LineItem label="Base monthly salary" value={summary.baseSalary} />
+          <LineItem label="Sunday overtime" value={summary.sundayOtAmount} />
+          <LineItem label="Public holiday work" value={summary.publicHolidayWorkAmount} />
+          <LineItem
+            label="Unpaid off day deduction"
+            value={-summary.unpaidOffDayDeduction}
+          />
+          <LineItem label="Advance deductions" value={-summary.totalAdvanceDeductions} />
+          <LineItem label="Final payout" value={summary.finalPayout} strong />
+        </dl>
+      </section>
+      <section
+        aria-labelledby="salary-plan-history-title"
+        className="salary-history-panel"
+      >
+        <div className="panel-header">
+          <div>
+            <h3 id="salary-plan-history-title">Salary plan history</h3>
+            <p>Plans are ordered by effective date, with the plan used for this month marked active.</p>
+          </div>
+        </div>
+        <SalaryPlanHistory
+          salaryConfigs={salaryConfigs}
+          activeEffectiveStartDate={summary.configEffectiveStartDate}
+          emptyMessage="No salary plans saved yet. Add one in Config before payroll review."
+        />
+      </section>
       <section aria-labelledby="included-advances-title">
-        <h3 id="included-advances-title">Included advances</h3>
+        <h3 id="included-advances-title">Advance deductions this month</h3>
         {includedAdvances.length ? (
           <ul className="record-list">
             {includedAdvances.map((advance) => (
@@ -91,6 +153,13 @@ export function SalaryScreen({
                 <strong>{formatSgd(advance.amount)}</strong>
                 <span>{advance.date}</span>
                 {advance.description ? <span>{advance.description}</span> : null}
+                {includedDeductions
+                  .filter((deduction) => deduction.advanceId === advance.id)
+                  .map((deduction) => (
+                    <span key={deduction.id}>
+                      Deduct {formatSgd(deduction.amount)} in {deduction.month}
+                    </span>
+                  ))}
               </li>
             ))}
           </ul>
@@ -104,8 +173,11 @@ export function SalaryScreen({
           <ul className="record-list">
             {includedTimeRecords.map((record) => (
               <li key={record.id}>
-                <strong>{record.type}</strong>
-                <span>{record.startDate}</span>
+                <strong>{formatRecordType(record.type)}</strong>
+                <span>
+                  {record.startDate}
+                  {record.endDate !== record.startDate ? ` to ${record.endDate}` : ""}
+                </span>
                 {record.notes ? <span>{record.notes}</span> : null}
               </li>
             ))}
@@ -125,4 +197,45 @@ function SummaryItem({ label, value }: { label: string; value: string }) {
       <strong>{value}</strong>
     </div>
   );
+}
+
+function LineItem({
+  label,
+  value,
+  strong = false,
+}: {
+  label: string;
+  value: number;
+  strong?: boolean;
+}) {
+  const displayValue = Object.is(value, -0) ? 0 : value;
+
+  return (
+    <div className={strong ? "strong-line" : undefined}>
+      <dt>{label}</dt>
+      <dd>{formatSgd(displayValue)}</dd>
+    </div>
+  );
+}
+
+function getExpectedPayDate(month: string): string {
+  if (!isMonthKey(month)) {
+    return "Select a month";
+  }
+
+  const [year, monthNumber] = month.split("-").map(Number);
+  const payDate = new Date(Date.UTC(year, monthNumber, 0));
+  return payDate.toISOString().slice(0, 10);
+}
+
+function formatRecordType(type: TimeRecord["type"]): string {
+  if (type === "SUNDAY_OT") {
+    return "Sunday OT";
+  }
+
+  if (type === "PUBLIC_HOLIDAY_WORK") {
+    return "Public holiday work";
+  }
+
+  return "Off day";
 }

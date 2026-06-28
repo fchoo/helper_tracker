@@ -1,4 +1,8 @@
-import { clampDateRangeToMonth, countInclusiveDays } from "../../lib/dates";
+import {
+  clampDateRangeToMonth,
+  countInclusiveDays,
+  isMonthKey,
+} from "../../lib/dates";
 import type { TimeRecord } from "./types";
 
 export type TimeRecordCounts = {
@@ -11,6 +15,14 @@ export function countTimeRecordsForMonth(
   timeRecords: TimeRecord[],
   month: string,
 ): TimeRecordCounts {
+  if (!isMonthKey(month)) {
+    return {
+      sundayOtDays: 0,
+      publicHolidayWorkDays: 0,
+      unpaidOffDays: 0,
+    };
+  }
+
   return timeRecords.reduce<TimeRecordCounts>(
     (counts, record) => {
       const overlap = clampDateRangeToMonth(
@@ -45,4 +57,15 @@ export function countTimeRecordsForMonth(
       unpaidOffDays: 0,
     },
   );
+}
+
+export function timeRecordOverlapsMonth(
+  record: TimeRecord,
+  month: string,
+): boolean {
+  if (!isMonthKey(month)) {
+    return false;
+  }
+
+  return clampDateRangeToMonth(record.startDate, record.endDate, month) !== null;
 }

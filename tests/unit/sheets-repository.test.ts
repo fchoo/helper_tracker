@@ -12,10 +12,21 @@ describe("SheetsRepository", () => {
             "monthly_salary",
             "effective_start_date",
             "ot_day_divisor",
+            "default_sunday_off_policy",
+            "default_sunday_off_count",
             "notes",
             "created_at",
           ],
-          ["cfg_1", "900", "2026-06-01", "26", "Initial", "2026-06-27T12:00:00.000Z"],
+          [
+            "cfg_1",
+            "900",
+            "2026-06-01",
+            "26",
+            "FIXED_COUNT",
+            "4",
+            "Initial",
+            "2026-06-27T12:00:00.000Z",
+          ],
         ],
       }),
       appendValues: vi.fn(),
@@ -29,6 +40,8 @@ describe("SheetsRepository", () => {
         monthlySalary: 900,
         effectiveStartDate: "2026-06-01",
         otDayDivisor: 26,
+        defaultSundayOffPolicy: "FIXED_COUNT",
+        defaultSundayOffCount: 4,
         notes: "Initial",
         createdAt: "2026-06-27T12:00:00.000Z",
       },
@@ -50,12 +63,23 @@ describe("SheetsRepository", () => {
       monthlySalary: 900,
       effectiveStartDate: "2026-06-01",
       otDayDivisor: 26,
+      defaultSundayOffPolicy: "FIXED_COUNT",
+      defaultSundayOffCount: 4,
       notes: "Initial",
       createdAt: "2026-06-27T12:00:00.000Z",
     });
 
-    expect(client.appendValues).toHaveBeenCalledWith("sheet_123", "Config!A:F", [
-      ["cfg_1", 900, "2026-06-01", 26, "Initial", "2026-06-27T12:00:00.000Z"],
+    expect(client.appendValues).toHaveBeenCalledWith("sheet_123", "Config!A:H", [
+      [
+        "cfg_1",
+        900,
+        "2026-06-01",
+        26,
+        "FIXED_COUNT",
+        4,
+        "Initial",
+        "2026-06-27T12:00:00.000Z",
+      ],
     ]);
   });
 

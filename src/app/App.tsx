@@ -1,9 +1,14 @@
 import { useMemo, useState } from "react";
-import { AdvancesScreen, type NewAdvancePayload } from "../features/advances/AdvancesScreen";
+import {
+  AdvancesScreen,
+  type EditAdvancePayload,
+  type NewAdvancePayload,
+} from "../features/advances/AdvancesScreen";
 import type { Advance, AdvanceDeduction } from "../features/advances/types";
 import {
   CalendarScreen,
   type NewPublicHolidayInput,
+  type NewTimeRecordInput,
 } from "../features/calendar/CalendarScreen";
 import type { PublicHoliday } from "../features/calendar/types";
 import {
@@ -11,11 +16,8 @@ import {
   type NewSalaryConfigInput,
 } from "../features/config/ConfigScreen";
 import type { SalaryConfig } from "../features/config/types";
+import { checkSpreadsheetHealth } from "../features/config/spreadsheetHealth";
 import { SalaryScreen } from "../features/salary/SalaryScreen";
-import {
-  TimeRecordsScreen,
-  type NewTimeRecordInput,
-} from "../features/time-records/TimeRecordsScreen";
 import type { TimeRecord } from "../features/time-records/types";
 import { isMonthKey } from "../lib/dates";
 import { getCachedAppPreferences, setCachedAppPreferences } from "../persistence/cacheDb";
@@ -63,6 +65,10 @@ export function App() {
     handleConnectSpreadsheet(`local_${crypto.randomUUID()}`);
   }
 
+  function handleCheckSpreadsheetHealth(targetSpreadsheetId: string) {
+    return checkSpreadsheetHealth(targetSpreadsheetId);
+  }
+
   function handleAddSalaryConfig(input: NewSalaryConfigInput) {
     setSalaryConfigs((currentConfigs) => [
       ...currentConfigs,
@@ -92,6 +98,32 @@ export function App() {
         ...deduction,
         id: `ded_${crypto.randomUUID()}`,
         advanceId,
+        createdAt,
+      })),
+    ]);
+  }
+
+  function handleUpdateAdvance(payload: EditAdvancePayload) {
+    const createdAt = new Date().toISOString();
+
+    setAdvances((currentAdvances) =>
+      currentAdvances.map((advance) =>
+        advance.id === payload.advanceId
+          ? {
+              ...advance,
+              ...payload.advance,
+            }
+          : advance,
+      ),
+    );
+    setAdvanceDeductions((currentDeductions) => [
+      ...currentDeductions.filter(
+        (deduction) => deduction.advanceId !== payload.advanceId,
+      ),
+      ...payload.deductions.map((deduction) => ({
+        ...deduction,
+        id: `ded_${crypto.randomUUID()}`,
+        advanceId: payload.advanceId,
         createdAt,
       })),
     ]);
@@ -150,7 +182,6 @@ export function App() {
     <main className="app-shell">
       <header className="app-header">
         <div>
-          <p className="eyebrow">Static PWA MVP</p>
           <h1 id="app-title">Domestic Helper Tracker</h1>
         </div>
         <label className="month-control">
@@ -187,16 +218,7 @@ export function App() {
           deductions={advanceDeductions}
           selectedMonth={selectedMonth}
           onAddAdvance={handleAddAdvance}
-        />
-      );
-    }
-
-    if (routeId === "time") {
-      return (
-        <TimeRecordsScreen
-          selectedMonth={selectedMonth}
-          timeRecords={timeRecords}
-          onAddTimeRecord={handleAddTimeRecord}
+          onUpdateAdvance={handleUpdateAdvance}
         />
       );
     }
@@ -211,6 +233,7 @@ export function App() {
           onAddPublicHoliday={handleAddPublicHoliday}
           onUpdatePublicHoliday={handleUpdatePublicHoliday}
           onDeletePublicHoliday={handleDeletePublicHoliday}
+          onAddTimeRecord={handleAddTimeRecord}
         />
       );
     }
@@ -223,6 +246,7 @@ export function App() {
           onAddSalaryConfig={handleAddSalaryConfig}
           onConnectSpreadsheet={handleConnectSpreadsheet}
           onCreateSpreadsheet={handleCreateSpreadsheet}
+          onCheckSpreadsheetHealth={handleCheckSpreadsheetHealth}
         />
       );
     }

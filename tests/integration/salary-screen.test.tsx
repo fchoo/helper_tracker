@@ -17,6 +17,14 @@ describe("SalaryScreen", () => {
             otDayDivisor: 26,
             createdAt,
           },
+          {
+            id: "cfg_2",
+            monthlySalary: 980,
+            effectiveStartDate: "2026-09-01",
+            otDayDivisor: 26,
+            defaultSundayOffPolicy: "ALL_SUNDAYS",
+            createdAt,
+          },
         ]}
         advances={[
           {
@@ -52,6 +60,15 @@ describe("SalaryScreen", () => {
             notes: "Worked Sunday",
             createdAt,
           },
+          {
+            id: "time_2",
+            type: "OFF_DAY",
+            startDate: "2026-05-31",
+            endDate: "2026-06-02",
+            isPaidOffDay: false,
+            notes: "Overlapping off day",
+            createdAt,
+          },
         ]}
         publicHolidays={[]}
       />,
@@ -59,9 +76,15 @@ describe("SalaryScreen", () => {
 
     expect(screen.getByRole("heading", { name: "Salary" })).toBeInTheDocument();
     expect(screen.getByText("Final payout")).toBeInTheDocument();
-    expect(screen.getByText("SGD 834.62")).toBeInTheDocument();
-    expect(screen.getByText("Sunday OT days")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Salary plan history" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Active")).toBeInTheDocument();
+    expect(screen.getByText("SGD 980.00")).toBeInTheDocument();
+    expect(screen.getAllByText("SGD 765.38").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Sunday overtime").length).toBeGreaterThan(0);
     expect(screen.getByText("Loan")).toBeInTheDocument();
     expect(screen.getByText("Worked Sunday")).toBeInTheDocument();
+    expect(screen.getByText("Overlapping off day")).toBeInTheDocument();
   });
 });

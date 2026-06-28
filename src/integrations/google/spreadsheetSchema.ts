@@ -56,6 +56,8 @@ const requiredSheetSchemas: RequiredSheetSchemas = {
     "monthly_salary",
     "effective_start_date",
     "ot_day_divisor",
+    "default_sunday_off_policy",
+    "default_sunday_off_count",
     "notes",
     "created_at",
   ],

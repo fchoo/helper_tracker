@@ -1,4 +1,4 @@
-export type AppRouteId = "salary" | "advances" | "time" | "calendar" | "config";
+export type AppRouteId = "salary" | "advances" | "calendar" | "config";
 
 export type AppRoute = {
   id: AppRouteId;
@@ -8,7 +8,6 @@ export type AppRoute = {
 export const appRoutes: AppRoute[] = [
   { id: "salary", label: "Salary" },
   { id: "advances", label: "Advances" },
-  { id: "time", label: "Time" },
-  { id: "calendar", label: "Calendar" },
+  { id: "calendar", label: "Time & Calendar" },
   { id: "config", label: "Config" },
 ];

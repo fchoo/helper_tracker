@@ -79,3 +79,36 @@ export function parseAdvanceScheduleText(
 
   return deductions;
 }
+
+export function validateStructuredAdvanceSchedule(
+  deductions: ParsedAdvanceDeduction[],
+  totalAmount: number,
+): ParsedAdvanceDeduction[] {
+  if (!deductions.length) {
+    throw new Error("Deduction schedule is required.");
+  }
+
+  for (const deduction of deductions) {
+    if (
+      !isMonthKey(deduction.month) ||
+      !Number.isFinite(deduction.amount) ||
+      deduction.amount <= 0
+    ) {
+      throw new Error("Each deduction row needs a valid month and amount.");
+    }
+  }
+
+  const scheduleTotal = roundMoney(
+    deductions.reduce((total, deduction) => total + deduction.amount, 0),
+  );
+
+  if (scheduleTotal !== roundMoney(totalAmount)) {
+    throw new Error("Deduction schedule total must match the advance amount.");
+  }
+
+  return deductions.map((deduction) => ({
+    ...deduction,
+    amount: roundMoney(deduction.amount),
+    notes: deduction.notes.trim(),
+  }));
+}

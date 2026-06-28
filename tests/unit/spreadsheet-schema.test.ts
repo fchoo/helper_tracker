@@ -5,6 +5,10 @@ import {
   headersMatch,
   normalizeHeaderRow,
 } from "../../src/integrations/google/spreadsheetSchema";
+import {
+  buildUncheckedSpreadsheetHealth,
+  checkSpreadsheetHealth,
+} from "../../src/features/config/spreadsheetHealth";
 
 describe("spreadsheet schema", () => {
   it("defines required sheets and headers from the spec", () => {
@@ -14,6 +18,8 @@ describe("spreadsheet schema", () => {
         "monthly_salary",
         "effective_start_date",
         "ot_day_divisor",
+        "default_sunday_off_policy",
+        "default_sunday_off_count",
         "notes",
         "created_at",
       ],
@@ -63,5 +69,17 @@ describe("spreadsheet schema", () => {
           request.updateCells.rows[0].values[0].userEnteredValue.stringValue === "config_id",
       ),
     ).toBe(true);
+  });
+
+  it("summarizes Google Sheet setup health", () => {
+    expect(buildUncheckedSpreadsheetHealth().status).toBe("not_connected");
+
+    const health = checkSpreadsheetHealth("sheet_123", {
+      sheets: [{ properties: { title: "Config", sheetId: 1 }, headerValues: ["wrong"] }],
+    });
+
+    expect(health.status).toBe("needs_attention");
+    expect(health.missingSheetCount).toBeGreaterThan(0);
+    expect(health.headerIssueCount).toBe(1);
   });
 });

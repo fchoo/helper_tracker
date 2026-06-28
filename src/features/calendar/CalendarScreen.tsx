@@ -1,7 +1,11 @@
 import { FormEvent, useMemo, useState } from "react";
-import type { TimeRecord } from "../time-records/types";
+import type { TimeRecord, TimeRecordType } from "../time-records/types";
+import {
+  countTimeRecordsForMonth,
+  timeRecordOverlapsMonth,
+} from "../time-records/timeRecordMath";
 import type { PublicHoliday } from "./types";
-import { getMonthDateRange, isIsoDate } from "../../lib/dates";
+import { getMonthDateRange, isIsoDate, isMonthKey } from "../../lib/dates";
 
 export type CalendarScreenProps = {
   selectedMonth: string;
@@ -15,6 +19,7 @@ export type CalendarScreenProps = {
     holiday: PublicHoliday,
   ) => Promise<PublicHoliday> | PublicHoliday;
   onDeletePublicHoliday?: (holidayId: string) => Promise<void> | void;
+  onAddTimeRecord?: (record: NewTimeRecordInput) => Promise<void> | void;
 };
 
 export type NewPublicHolidayInput = {
@@ -22,6 +27,8 @@ export type NewPublicHolidayInput = {
   date: string;
   notes?: string;
 };
+
+export type NewTimeRecordInput = Omit<TimeRecord, "id" | "createdAt">;
 
 export function CalendarScreen({
   selectedMonth,
@@ -31,61 +38,252 @@ export function CalendarScreen({
   onAddPublicHoliday,
   onUpdatePublicHoliday,
   onDeletePublicHoliday,
+  onAddTimeRecord,
 }: CalendarScreenProps) {
   const days = useMemo(() => buildCalendarDays(selectedMonth), [selectedMonth]);
-  const [managedHolidays, setManagedHolidays] =
-    useState<PublicHoliday[]>(publicHolidays);
+  const counts = useMemo(
+    () => countTimeRecordsForMonth(timeRecords, selectedMonth),
+    [timeRecords, selectedMonth],
+  );
+  const [managedHolidayState, setManagedHolidayState] = useState({
+    sourceHolidays: publicHolidays,
+    holidays: publicHolidays,
+  });
+
+  if (managedHolidayState.sourceHolidays !== publicHolidays) {
+    setManagedHolidayState({
+      sourceHolidays: publicHolidays,
+      holidays: publicHolidays,
+    });
+  }
+
+  const setManagedHolidays = (holidays: PublicHoliday[]) => {
+    setManagedHolidayState({
+      sourceHolidays: publicHolidays,
+      holidays,
+    });
+  };
   const visibleHolidays =
     onImportPublicHolidays ||
     onAddPublicHoliday ||
     onUpdatePublicHoliday ||
     onDeletePublicHoliday
-      ? managedHolidays
+      ? managedHolidayState.holidays
       : publicHolidays;
 
   return (
     <section aria-labelledby="calendar-title" className="screen">
       <header className="screen-header">
-        <h2 id="calendar-title">Calendar</h2>
-        <p>{selectedMonth}</p>
+        <div>
+          <h2 id="calendar-title">Time & Calendar</h2>
+          <p>{selectedMonth}</p>
+        </div>
       </header>
-      {onImportPublicHolidays ||
-      onAddPublicHoliday ||
-      onUpdatePublicHoliday ||
-      onDeletePublicHoliday ? (
-        <PublicHolidayPanel
-          holidays={visibleHolidays}
-          selectedYear={Number(selectedMonth.slice(0, 4))}
-          onImportPublicHolidays={onImportPublicHolidays}
-          onAddPublicHoliday={onAddPublicHoliday}
-          onUpdatePublicHoliday={onUpdatePublicHoliday}
-          onDeletePublicHoliday={onDeletePublicHoliday}
-          onHolidaysChange={setManagedHolidays}
+      <section className="summary-grid" aria-label="Monthly time summary">
+        <SummaryItem label="Sunday OT" value={String(counts.sundayOtDays)} />
+        <SummaryItem
+          label="Public holiday work"
+          value={String(counts.publicHolidayWorkDays)}
         />
-      ) : null}
-      <div className="calendar-grid" role="list" aria-label="Monthly calendar">
-        {days.map((date) => {
-          const holidays = visibleHolidays.filter((holiday) => holiday.date === date);
-          const records = timeRecords.filter(
-            (record) => record.startDate <= date && record.endDate >= date,
-          );
-          const isSunday = new Date(`${date}T00:00:00.000Z`).getUTCDay() === 0;
+        <SummaryItem label="Unpaid off days" value={String(counts.unpaidOffDays)} />
+        <SummaryItem
+          label="Public holidays"
+          value={String(
+            visibleHolidays.filter((holiday) =>
+              holiday.date.startsWith(selectedMonth),
+            ).length,
+          )}
+        />
+      </section>
+      <div className="calendar-workspace">
+        <section className="calendar-tools" aria-label="Time and holiday entry">
+          {onAddTimeRecord ? <TimeRecordForm onSubmit={onAddTimeRecord} /> : null}
+          <TimeRecordList selectedMonth={selectedMonth} timeRecords={timeRecords} />
+          {onImportPublicHolidays ||
+          onAddPublicHoliday ||
+          onUpdatePublicHoliday ||
+          onDeletePublicHoliday ? (
+            <PublicHolidayPanel
+              holidays={visibleHolidays}
+              selectedYear={Number(selectedMonth.slice(0, 4))}
+              onImportPublicHolidays={onImportPublicHolidays}
+              onAddPublicHoliday={onAddPublicHoliday}
+              onUpdatePublicHoliday={onUpdatePublicHoliday}
+              onDeletePublicHoliday={onDeletePublicHoliday}
+              onHolidaysChange={setManagedHolidays}
+            />
+          ) : null}
+        </section>
+        <section aria-labelledby="month-board-title" className="month-board">
+          <div className="panel-header">
+            <h3 id="month-board-title">Month view</h3>
+          </div>
+          <div className="calendar-grid" role="list" aria-label="Monthly calendar">
+            {days.map((date) => {
+              const holidays = visibleHolidays.filter(
+                (holiday) => holiday.date === date,
+              );
+              const records = timeRecords.filter(
+                (record) => record.startDate <= date && record.endDate >= date,
+              );
+              const isSunday = new Date(`${date}T00:00:00.000Z`).getUTCDay() === 0;
 
-          return (
-            <article className="calendar-day" key={date} role="listitem">
-              <strong>{date.slice(8)}</strong>
-              {isSunday ? <span>Sunday</span> : null}
-              {holidays.map((holiday) => (
-                <span key={holiday.id}>{holiday.name}</span>
-              ))}
-              {records.map((record) => (
-                <span key={record.id}>{formatRecordType(record.type)}</span>
-              ))}
-            </article>
-          );
-        })}
+              return (
+                <article className="calendar-day" key={date} role="listitem">
+                  <strong>{date.slice(8)}</strong>
+                  {isSunday ? <span>Sunday</span> : null}
+                  {holidays.map((holiday) => (
+                    <span key={holiday.id}>{holiday.name}</span>
+                  ))}
+                  {records.map((record) => (
+                    <span key={record.id}>{formatRecordType(record.type)}</span>
+                  ))}
+                </article>
+              );
+            })}
+          </div>
+        </section>
       </div>
     </section>
+  );
+}
+
+function TimeRecordForm({
+  onSubmit,
+}: {
+  onSubmit: NonNullable<CalendarScreenProps["onAddTimeRecord"]>;
+}) {
+  const [type, setType] = useState<TimeRecordType>("OFF_DAY");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [isPaidOffDay, setIsPaidOffDay] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [error, setError] = useState("");
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!startDate) {
+      setError("Start date is required.");
+      return;
+    }
+
+    const resolvedEndDate = endDate || startDate;
+
+    if (resolvedEndDate < startDate) {
+      setError("End date must be on or after start date.");
+      return;
+    }
+
+    setError("");
+    await onSubmit({
+      type,
+      startDate,
+      endDate: resolvedEndDate,
+      isPaidOffDay: type === "OFF_DAY" ? isPaidOffDay : undefined,
+      notes: notes.trim(),
+    });
+
+    setStartDate("");
+    setEndDate("");
+    setIsPaidOffDay(false);
+    setNotes("");
+  }
+
+  return (
+    <form className="stack-form compact-form" onSubmit={handleSubmit}>
+      <h3>Add time record</h3>
+      <label>
+        Record type
+        <select
+          value={type}
+          onChange={(event) => setType(event.target.value as TimeRecordType)}
+        >
+          <option value="OFF_DAY">Off day</option>
+          <option value="SUNDAY_OT">Sunday OT</option>
+          <option value="PUBLIC_HOLIDAY_WORK">Public holiday work</option>
+        </select>
+      </label>
+      <div className="form-grid">
+        <label>
+          Start date
+          <input
+            type="date"
+            value={startDate}
+            onChange={(event) => setStartDate(event.target.value)}
+          />
+        </label>
+        <label>
+          End date
+          <input
+            type="date"
+            value={endDate}
+            onChange={(event) => setEndDate(event.target.value)}
+          />
+        </label>
+      </div>
+      {type === "OFF_DAY" ? (
+        <label className="choice-row">
+          <input
+            type="checkbox"
+            checked={isPaidOffDay}
+            onChange={(event) => setIsPaidOffDay(event.target.checked)}
+          />
+          Paid off day
+        </label>
+      ) : null}
+      <label>
+        Time notes
+        <input value={notes} onChange={(event) => setNotes(event.target.value)} />
+      </label>
+      {error ? <p role="alert">{error}</p> : null}
+      <button type="submit">Save time record</button>
+    </form>
+  );
+}
+
+function TimeRecordList({
+  selectedMonth,
+  timeRecords,
+}: {
+  selectedMonth: string;
+  timeRecords: TimeRecord[];
+}) {
+  const visibleRecords = timeRecords.filter(
+    (record) => timeRecordOverlapsMonth(record, selectedMonth),
+  );
+
+  return (
+    <section aria-labelledby="time-record-list-title" className="history-panel">
+      <div className="panel-header">
+        <h3 id="time-record-list-title">Time records</h3>
+      </div>
+      {visibleRecords.length ? (
+        <ul className="record-list scroll-list">
+          {visibleRecords.map((record) => (
+            <li key={record.id}>
+              <strong>{formatRecordType(record.type)}</strong>
+              <span>
+                {record.startDate}
+                {record.endDate !== record.startDate ? ` to ${record.endDate}` : ""}
+              </span>
+              {record.notes ? <span>{record.notes}</span> : null}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>No time records this month.</p>
+      )}
+    </section>
+  );
+}
+
+function SummaryItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="summary-item">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
   );
 }
 
@@ -227,7 +425,7 @@ function PublicHolidayPanel({
           />
         </label>
         <label>
-          Notes
+          Holiday notes
           <textarea value={notes} onChange={(event) => setNotes(event.target.value)} />
         </label>
         {error ? <p role="alert">{error}</p> : null}
@@ -304,6 +502,10 @@ function mergeHolidays(
 }
 
 function buildCalendarDays(month: string): string[] {
+  if (!isMonthKey(month)) {
+    return [];
+  }
+
   const range = getMonthDateRange(month);
   const days: string[] = [];
   const current = new Date(`${range.startDate}T00:00:00.000Z`);

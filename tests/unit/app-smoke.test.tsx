@@ -23,8 +23,10 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Advances" }));
     expect(screen.getByRole("heading", { name: "Advances" })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Calendar" }));
-    expect(screen.getByRole("heading", { name: "Calendar" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Time & Calendar" }));
+    expect(
+      screen.getByRole("heading", { name: "Time & Calendar" }),
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Config" }));
     expect(screen.getByRole("heading", { name: "Configuration" })).toBeInTheDocument();
@@ -37,7 +39,7 @@ describe("App", () => {
 
     await user.clear(screen.getByLabelText("Selected month"));
     await user.type(screen.getByLabelText("Selected month"), "2026-08");
-    await user.click(screen.getByRole("button", { name: "Calendar" }));
+    await user.click(screen.getByRole("button", { name: "Time & Calendar" }));
 
     expect(screen.getByText("2026-08")).toBeInTheDocument();
   });
