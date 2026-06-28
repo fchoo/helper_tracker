@@ -1,8 +1,45 @@
 import { expect, test, type Page } from "@playwright/test";
 
 test.beforeEach(async ({ page }) => {
+  await page.route("https://accounts.google.com/gsi/client", async (route) => {
+    await route.fulfill({
+      contentType: "application/javascript",
+      body: `
+        window.google = {
+          accounts: {
+            oauth2: {
+              initTokenClient: ({ callback }) => ({
+                requestAccessToken: () => callback({ access_token: "token_e2e" }),
+              }),
+            },
+          },
+        };
+      `,
+    });
+  });
   await page.addInitScript(() => {
     localStorage.clear();
+  });
+  await page.route("https://sheets.googleapis.com/v4/spreadsheets/sheet_e2e?**", async (route) => {
+    await route.fulfill({
+      json: {
+        spreadsheetId: "sheet_e2e",
+        sheets: requiredSheets.map((title, index) => ({
+          properties: { title, sheetId: index + 1 },
+        })),
+      },
+    });
+  });
+  await page.route("https://sheets.googleapis.com/v4/spreadsheets/sheet_e2e/values/**", async (route) => {
+    const encodedRange = route.request().url().split("/values/")[1] ?? "";
+    const range = decodeURIComponent(encodedRange);
+    const sheetName = range.replace("!1:1", "") as keyof typeof requiredHeaderRows;
+
+    await route.fulfill({
+      json: {
+        values: [requiredHeaderRows[sheetName] ?? []],
+      },
+    });
   });
   await page.goto("/");
 });
@@ -15,11 +52,15 @@ test("tracks a monthly helper payout from setup through salary review", async ({
   await page.getByLabel("Selected month").fill("2026-08");
   await page.getByRole("button", { name: "Config" }).click();
 
+  await page
+    .getByLabel("OAuth Client ID")
+    .fill("1234567890-e2e.apps.googleusercontent.com");
+  await page.getByRole("button", { name: "Save OAuth ID" }).click();
   await page.getByLabel("Google Spreadsheet ID").fill("sheet_e2e");
   await page.getByRole("button", { name: "Connect sheet" }).click();
   await expect(page.getByText("Connected to sheet_e2e")).toBeVisible();
   await page.getByRole("button", { name: "Run health check" }).click();
-  await expect(page.getByText("Schema template ready")).toBeVisible();
+  await expect(page.getByText("Schema healthy")).toBeVisible();
 
   await page.getByLabel("Monthly salary").fill("900");
   await page.getByLabel("Effective start date").fill("2026-01-01");
@@ -102,6 +143,72 @@ test("keeps navigation usable on desktop and Android-sized viewports", async ({
 function summaryItem(page: Page, label: string) {
   return page.locator(".summary-item").filter({ hasText: label });
 }
+
+const requiredSheets = [
+  "Config",
+  "Advances",
+  "Advance_Deductions",
+  "Time_Records",
+  "Public_Holidays",
+  "Monthly_Summary",
+] as const;
+
+const requiredHeaderRows: Record<(typeof requiredSheets)[number], string[]> = {
+  Config: [
+    "config_id",
+    "monthly_salary",
+    "effective_start_date",
+    "ot_day_divisor",
+    "pay_cycle_start_day",
+    "default_sunday_off_policy",
+    "default_sunday_off_count",
+    "notes",
+    "created_at",
+  ],
+  Advances: ["advance_id", "date", "amount", "description", "created_at"],
+  Advance_Deductions: [
+    "advance_deduction_id",
+    "advance_id",
+    "year_month",
+    "amount",
+    "notes",
+    "created_at",
+  ],
+  Time_Records: [
+    "time_record_id",
+    "record_type",
+    "start_date",
+    "end_date",
+    "quantity",
+    "is_paid_off_day",
+    "notes",
+    "created_at",
+  ],
+  Public_Holidays: [
+    "holiday_id",
+    "holiday_name",
+    "date",
+    "year",
+    "source",
+    "notes",
+    "created_at",
+  ],
+  Monthly_Summary: [
+    "year_month",
+    "base_salary",
+    "sunday_ot_days",
+    "public_holiday_work_days",
+    "unpaid_off_days",
+    "ot_day_rate",
+    "sunday_ot_amount",
+    "public_holiday_work_amount",
+    "unpaid_off_day_deduction",
+    "total_advance_deductions",
+    "final_payout",
+    "config_effective_start_date",
+    "calculated_at",
+  ],
+};
 
 async function assertResponsiveShell(
   page: Page,

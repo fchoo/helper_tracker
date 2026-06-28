@@ -16,10 +16,12 @@ export type SpreadsheetSetupProps = {
   isGoogleOAuthConfigured?: boolean;
   isDeploymentGoogleOAuthConfigured?: boolean;
   onConnect: (spreadsheetId: string) => Promise<void> | void;
-  onCreate: () => Promise<void> | void;
+  onCreate: () => Promise<unknown> | unknown;
   onSaveGoogleClientId?: (clientId: string) => Promise<void> | void;
   onClearGoogleClientId?: () => Promise<void> | void;
   onHealthCheck?: (spreadsheetId: string) => Promise<SpreadsheetHealthCheck> | SpreadsheetHealthCheck;
+  onSaveAccountBackup?: (spreadsheetId?: string) => Promise<void> | void;
+  onRestoreAccountBackup?: () => Promise<void> | void;
 };
 
 export function SpreadsheetSetup({
@@ -32,6 +34,8 @@ export function SpreadsheetSetup({
   onSaveGoogleClientId,
   onClearGoogleClientId,
   onHealthCheck,
+  onSaveAccountBackup,
+  onRestoreAccountBackup,
 }: SpreadsheetSetupProps) {
   const [inputGoogleClientId, setInputGoogleClientId] = useState("");
   const [inputSpreadsheetId, setInputSpreadsheetId] = useState("");
@@ -40,6 +44,9 @@ export function SpreadsheetSetup({
   const [isCheckingHealth, setIsCheckingHealth] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [createStatus, setCreateStatus] = useState("");
+  const [accountBackupStatus, setAccountBackupStatus] = useState("");
+  const [isSavingAccountBackup, setIsSavingAccountBackup] = useState(false);
+  const [isRestoringAccountBackup, setIsRestoringAccountBackup] = useState(false);
   const canCreateSpreadsheet = isGoogleOAuthConfigured ?? true;
   const connectedSpreadsheetId = normalizeGoogleSpreadsheetId(spreadsheetId);
   const displayedHealthCheck =
@@ -80,6 +87,7 @@ export function SpreadsheetSetup({
     }
 
     setError("");
+    setAccountBackupStatus("");
     setCreateStatus("");
     await onConnect(normalizedSpreadsheetId);
     setHealthCheck(buildUncheckedSpreadsheetHealth(normalizedSpreadsheetId));
@@ -109,6 +117,55 @@ export function SpreadsheetSetup({
       );
     } finally {
       setIsCreating(false);
+    }
+  }
+
+  async function handleSaveAccountBackup() {
+    setError("");
+    setAccountBackupStatus("");
+
+    const targetSpreadsheetId =
+      connectedSpreadsheetId ??
+      normalizeGoogleSpreadsheetId(inputSpreadsheetId.trim());
+
+    if (!targetSpreadsheetId) {
+      setError("Connect or create a Google Sheet before saving account backup.");
+      return;
+    }
+
+    try {
+      setIsSavingAccountBackup(true);
+      await onSaveAccountBackup?.(targetSpreadsheetId);
+      setAccountBackupStatus("Saved to Google account.");
+    } catch (accountBackupError) {
+      setError(
+        accountBackupError instanceof Error
+          ? accountBackupError.message
+          : "Could not save setup to Google account.",
+      );
+    } finally {
+      setIsSavingAccountBackup(false);
+    }
+  }
+
+  async function handleRestoreAccountBackup() {
+    setError("");
+    setCreateStatus("");
+    setAccountBackupStatus("");
+
+    try {
+      setIsRestoringAccountBackup(true);
+      await onRestoreAccountBackup?.();
+      setHealthCheck(undefined);
+      setAccountBackupStatus("Restored from Google account.");
+    } catch (accountBackupError) {
+      setError(
+        accountBackupError instanceof Error
+          ? accountBackupError.message
+          : "Could not restore setup from Google account.",
+      );
+    } finally {
+      setIsRestoringAccountBackup(false);
     }
   }
 
@@ -256,10 +313,40 @@ export function SpreadsheetSetup({
             {isCheckingHealth ? "Checking..." : "Run health check"}
           </button>
         </div>
+        {onSaveAccountBackup || onRestoreAccountBackup ? (
+          <div className="setup-card">
+            <span className="setup-step">{onSaveGoogleClientId ? "4" : "3"}</span>
+            <h3>Account backup</h3>
+            <p>Use Google account storage to keep this setup across browsers.</p>
+            <div className="button-row">
+              {onSaveAccountBackup ? (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={handleSaveAccountBackup}
+                  disabled={isSavingAccountBackup || !connectedSpreadsheetId}
+                >
+                  {isSavingAccountBackup ? "Saving..." : "Save setup"}
+                </button>
+              ) : null}
+              {onRestoreAccountBackup ? (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={handleRestoreAccountBackup}
+                  disabled={isRestoringAccountBackup}
+                >
+                  {isRestoringAccountBackup ? "Restoring..." : "Restore setup"}
+                </button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {error ? <p role="alert">{error}</p> : null}
       {createStatus ? <p role="status">{createStatus}</p> : null}
+      {accountBackupStatus ? <p role="status">{accountBackupStatus}</p> : null}
     </section>
   );
 }

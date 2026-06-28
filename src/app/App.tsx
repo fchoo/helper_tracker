@@ -24,6 +24,7 @@ import type { TimeRecord } from "../features/time-records/types";
 import { isMonthKey } from "../lib/dates";
 import {
   getCachedAppPreferences,
+  sanitizeCachedAppPreferences,
   setCachedAppPreferences,
   type CachedAppPreferences,
 } from "../persistence/cacheDb";
@@ -31,39 +32,53 @@ import { fetchSingaporePublicHolidays } from "../integrations/singapore/publicHo
 import { normalizeGoogleClientId } from "../integrations/google/clientId";
 import { normalizeGoogleSpreadsheetId } from "../integrations/google/spreadsheetId";
 import {
+  GOOGLE_DRIVE_APPDATA_SCOPE,
   createGoogleTokenClient as createDefaultGoogleTokenClient,
   type AppGoogleTokenClient,
 } from "../integrations/google/auth";
+import { GoogleDriveAppDataClient } from "../integrations/google/driveAppDataClient";
 import { GoogleSheetsClient } from "../integrations/google/sheetsClient";
 import {
   buildEnsureSchemaRequests,
   buildSpreadsheetCreateBody,
+  getRequiredSheetSchemas,
   type SpreadsheetMetadata,
 } from "../integrations/google/spreadsheetSchema";
 import { appRoutes, type AppRouteId } from "./routes";
 
 const fallbackMonth = new Date().toISOString().slice(0, 7);
 const defaultPayCycleStartDay = 1;
+const accountPreferencesFileName = "helper-tracker-preferences.json";
 
 type GoogleSheetsCreateClient = Pick<
   GoogleSheetsClient,
-  "batchUpdate" | "createSpreadsheet" | "getSpreadsheet"
+  "batchUpdate" | "createSpreadsheet" | "getSpreadsheet" | "getValues"
+>;
+type GoogleAccountStorageClient = Pick<
+  GoogleDriveAppDataClient,
+  "readJsonFile" | "writeJsonFile"
 >;
 
 export type AppProps = {
   googleClientId?: string;
   createGoogleTokenClient?: (options: {
     clientId: string;
+    scope?: string;
   }) => AppGoogleTokenClient;
   createGoogleSheetsClient?: (options: {
     accessToken: string;
   }) => GoogleSheetsCreateClient;
+  createGoogleDriveAppDataClient?: (options: {
+    accessToken: string;
+  }) => GoogleAccountStorageClient;
 };
 
 export function App({
   googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID,
   createGoogleTokenClient = createDefaultGoogleTokenClient,
   createGoogleSheetsClient = (options) => new GoogleSheetsClient(options),
+  createGoogleDriveAppDataClient = (options) =>
+    new GoogleDriveAppDataClient(options),
 }: AppProps = {}) {
   const cachedPreferences = useMemo(() => getCachedAppPreferences(), []);
   const deploymentGoogleClientId = normalizeGoogleClientId(googleClientId);
@@ -87,14 +102,20 @@ export function App({
   const [publicHolidays, setPublicHolidays] = useState<PublicHoliday[]>([]);
   const activeGoogleClientId = deploymentGoogleClientId ?? browserGoogleClientId;
 
-  function cachePreferences(overrides: CachedAppPreferences = {}) {
-    setCachedAppPreferences({
+  function buildCurrentPreferences(
+    overrides: CachedAppPreferences = {},
+  ): CachedAppPreferences {
+    return sanitizeCachedAppPreferences({
       spreadsheetId,
       selectedMonth,
       payCycleStartDay,
       googleClientId: browserGoogleClientId,
       ...overrides,
     });
+  }
+
+  function cachePreferences(overrides: CachedAppPreferences = {}) {
+    setCachedAppPreferences(buildCurrentPreferences(overrides));
   }
 
   function handleMonthChange(month: string) {
@@ -132,7 +153,7 @@ export function App({
     cachePreferences({ googleClientId: undefined });
   }
 
-  async function handleCreateSpreadsheet() {
+  async function handleCreateSpreadsheet(): Promise<string> {
     if (!activeGoogleClientId) {
       throw new Error("Add a Google OAuth Client ID before creating an online Google Sheet.");
     }
@@ -156,10 +177,105 @@ export function App({
     }
 
     handleConnectSpreadsheet(nextSpreadsheetId);
+    return nextSpreadsheetId;
   }
 
-  function handleCheckSpreadsheetHealth(targetSpreadsheetId: string) {
-    return checkSpreadsheetHealth(targetSpreadsheetId);
+  async function handleCheckSpreadsheetHealth(targetSpreadsheetId: string) {
+    if (!activeGoogleClientId) {
+      throw new Error("Add a Google OAuth Client ID before checking the online sheet.");
+    }
+
+    const tokenClient = createGoogleTokenClient({ clientId: activeGoogleClientId });
+    const accessToken = await tokenClient.requestToken({ prompt: "consent" });
+    const sheetsClient = createGoogleSheetsClient({ accessToken });
+    const spreadsheetMetadata = readSpreadsheetMetadata(
+      await sheetsClient.getSpreadsheet(targetSpreadsheetId),
+    );
+
+    return checkSpreadsheetHealth(
+      targetSpreadsheetId,
+      await readSpreadsheetMetadataWithHeaders(
+        sheetsClient,
+        targetSpreadsheetId,
+        spreadsheetMetadata,
+      ),
+    );
+  }
+
+  async function handleSaveAccountBackup(targetSpreadsheetId?: string) {
+    const normalizedSpreadsheetId = normalizeGoogleSpreadsheetId(
+      targetSpreadsheetId ?? spreadsheetId,
+    );
+
+    if (!normalizedSpreadsheetId) {
+      throw new Error("Connect a real Google Sheet before saving account backup.");
+    }
+
+    const driveClient = await createAccountStorageClient();
+    const preferences = buildAccountPreferences({
+      spreadsheetId: normalizedSpreadsheetId,
+    });
+
+    await driveClient.writeJsonFile(accountPreferencesFileName, preferences);
+    setSpreadsheetId(normalizedSpreadsheetId);
+    cachePreferences({ spreadsheetId: normalizedSpreadsheetId });
+  }
+
+  async function handleRestoreAccountBackup() {
+    const driveClient = await createAccountStorageClient();
+    const storedPreferences = await driveClient.readJsonFile(
+      accountPreferencesFileName,
+    );
+
+    if (!isCachedAppPreferences(storedPreferences)) {
+      throw new Error("No saved Helper Tracker setup was found in this Google account.");
+    }
+
+    const restoredPreferences = sanitizeCachedAppPreferences(storedPreferences);
+
+    if (!restoredPreferences.spreadsheetId) {
+      throw new Error("Saved account setup does not include a Google Sheet.");
+    }
+
+    setSpreadsheetId(restoredPreferences.spreadsheetId);
+
+    if (restoredPreferences.selectedMonth) {
+      setSelectedMonth(restoredPreferences.selectedMonth);
+    }
+
+    if (restoredPreferences.payCycleStartDay) {
+      setPayCycleStartDay(restoredPreferences.payCycleStartDay);
+    }
+
+    cachePreferences({
+      spreadsheetId: restoredPreferences.spreadsheetId,
+      selectedMonth: restoredPreferences.selectedMonth ?? selectedMonth,
+      payCycleStartDay: restoredPreferences.payCycleStartDay ?? payCycleStartDay,
+    });
+  }
+
+  async function createAccountStorageClient(): Promise<GoogleAccountStorageClient> {
+    if (!activeGoogleClientId) {
+      throw new Error("Add a Google OAuth Client ID before using account backup.");
+    }
+
+    const tokenClient = createGoogleTokenClient({
+      clientId: activeGoogleClientId,
+      scope: GOOGLE_DRIVE_APPDATA_SCOPE,
+    });
+    const accessToken = await tokenClient.requestToken({ prompt: "consent" });
+    return createGoogleDriveAppDataClient({ accessToken });
+  }
+
+  function buildAccountPreferences(
+    overrides: CachedAppPreferences = {},
+  ): CachedAppPreferences {
+    return sanitizeCachedAppPreferences({
+      spreadsheetId,
+      selectedMonth,
+      payCycleStartDay,
+      ...overrides,
+    });
   }
 
   function handleAddSalaryConfig(input: NewSalaryConfigInput) {
@@ -356,6 +472,8 @@ export function App({
           onSaveGoogleClientId={handleSaveGoogleClientId}
           onClearGoogleClientId={handleClearGoogleClientId}
           onCheckSpreadsheetHealth={handleCheckSpreadsheetHealth}
+          onSaveAccountBackup={handleSaveAccountBackup}
+          onRestoreAccountBackup={handleRestoreAccountBackup}
           onImportPublicHolidays={handleImportPublicHolidays}
           onAddPublicHoliday={handleAddPublicHoliday}
           onUpdatePublicHoliday={handleUpdatePublicHoliday}
@@ -411,6 +529,53 @@ function readSpreadsheetMetadata(spreadsheet: unknown): SpreadsheetMetadata {
   }
 
   throw new Error("Google Sheets did not return sheet metadata.");
+}
+
+async function readSpreadsheetMetadataWithHeaders(
+  sheetsClient: GoogleSheetsCreateClient,
+  spreadsheetId: string,
+  metadata: SpreadsheetMetadata,
+): Promise<SpreadsheetMetadata> {
+  const requiredSheetNames = new Set(Object.keys(getRequiredSheetSchemas()));
+
+  return {
+    ...metadata,
+    sheets: await Promise.all(
+      (metadata.sheets ?? []).map(async (sheet) => {
+        if (!requiredSheetNames.has(sheet.properties.title)) {
+          return sheet;
+        }
+
+        return {
+          ...sheet,
+          headerValues: readHeaderValues(
+            await sheetsClient.getValues(
+              spreadsheetId,
+              `${sheet.properties.title}!1:1`,
+            ),
+          ),
+        };
+      }),
+    ),
+  };
+}
+
+function readHeaderValues(valuesResponse: unknown): string[] {
+  if (
+    typeof valuesResponse !== "object" ||
+    valuesResponse === null ||
+    !("values" in valuesResponse) ||
+    !Array.isArray(valuesResponse.values) ||
+    !Array.isArray(valuesResponse.values[0])
+  ) {
+    return [];
+  }
+
+  return valuesResponse.values[0].map((value) => String(value ?? ""));
+}
+
+function isCachedAppPreferences(value: unknown): value is CachedAppPreferences {
+  return typeof value === "object" && value !== null;
 }
 
 function mergePublicHolidays(

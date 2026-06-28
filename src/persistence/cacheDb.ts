@@ -19,7 +19,7 @@ export function getCachedAppPreferences(): CachedAppPreferences {
   }
 
   const parsed = JSON.parse(rawValue) as CachedAppPreferences;
-  const sanitizedPreferences = sanitizePreferences(parsed);
+  const sanitizedPreferences = sanitizeCachedAppPreferences(parsed);
 
   if (JSON.stringify(sanitizedPreferences) !== rawValue) {
     localStorage.setItem(cacheKey, JSON.stringify(sanitizedPreferences));
@@ -29,10 +29,10 @@ export function getCachedAppPreferences(): CachedAppPreferences {
 }
 
 export function setCachedAppPreferences(preferences: CachedAppPreferences): void {
-  localStorage.setItem(cacheKey, JSON.stringify(sanitizePreferences(preferences)));
+  localStorage.setItem(cacheKey, JSON.stringify(sanitizeCachedAppPreferences(preferences)));
 }
 
-function sanitizePreferences(
+export function sanitizeCachedAppPreferences(
   preferences: CachedAppPreferences,
 ): CachedAppPreferences {
   const spreadsheetId = normalizeGoogleSpreadsheetId(preferences.spreadsheetId);

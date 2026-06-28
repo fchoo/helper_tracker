@@ -19,10 +19,12 @@ export type ConfigScreenProps = {
   isDeploymentGoogleOAuthConfigured?: boolean;
   onAddSalaryConfig: (config: NewSalaryConfigInput) => Promise<void> | void;
   onConnectSpreadsheet?: (spreadsheetId: string) => Promise<void> | void;
-  onCreateSpreadsheet?: () => Promise<void> | void;
+  onCreateSpreadsheet?: () => Promise<unknown> | unknown;
   onSaveGoogleClientId?: (clientId: string) => Promise<void> | void;
   onClearGoogleClientId?: () => Promise<void> | void;
   onCheckSpreadsheetHealth?: (spreadsheetId: string) => Promise<SpreadsheetHealthCheck> | SpreadsheetHealthCheck;
+  onSaveAccountBackup?: (spreadsheetId?: string) => Promise<void> | void;
+  onRestoreAccountBackup?: () => Promise<void> | void;
   onImportPublicHolidays?: (year: number) => Promise<PublicHoliday[]>;
   onAddPublicHoliday?: (
     holiday: NewPublicHolidayInput,
@@ -47,6 +49,8 @@ export function ConfigScreen({
   onSaveGoogleClientId,
   onClearGoogleClientId,
   onCheckSpreadsheetHealth,
+  onSaveAccountBackup,
+  onRestoreAccountBackup,
   onImportPublicHolidays,
   onAddPublicHoliday,
   onUpdatePublicHoliday,
@@ -71,6 +75,8 @@ export function ConfigScreen({
           onSaveGoogleClientId={onSaveGoogleClientId}
           onClearGoogleClientId={onClearGoogleClientId}
           onHealthCheck={onCheckSpreadsheetHealth}
+          onSaveAccountBackup={onSaveAccountBackup}
+          onRestoreAccountBackup={onRestoreAccountBackup}
         />
       ) : null}
       <div className="config-layout">

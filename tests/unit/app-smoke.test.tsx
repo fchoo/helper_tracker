@@ -1,9 +1,80 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../src/app/App";
+import { GOOGLE_DRIVE_APPDATA_SCOPE } from "../../src/integrations/google/auth";
+
+const requiredSheets = [
+  "Config",
+  "Advances",
+  "Advance_Deductions",
+  "Time_Records",
+  "Public_Holidays",
+  "Monthly_Summary",
+] as const;
+
+const requiredHeaderRows: Record<(typeof requiredSheets)[number], string[]> = {
+  Config: [
+    "config_id",
+    "monthly_salary",
+    "effective_start_date",
+    "ot_day_divisor",
+    "pay_cycle_start_day",
+    "default_sunday_off_policy",
+    "default_sunday_off_count",
+    "notes",
+    "created_at",
+  ],
+  Advances: ["advance_id", "date", "amount", "description", "created_at"],
+  Advance_Deductions: [
+    "advance_deduction_id",
+    "advance_id",
+    "year_month",
+    "amount",
+    "notes",
+    "created_at",
+  ],
+  Time_Records: [
+    "time_record_id",
+    "record_type",
+    "start_date",
+    "end_date",
+    "quantity",
+    "is_paid_off_day",
+    "notes",
+    "created_at",
+  ],
+  Public_Holidays: [
+    "holiday_id",
+    "holiday_name",
+    "date",
+    "year",
+    "source",
+    "notes",
+    "created_at",
+  ],
+  Monthly_Summary: [
+    "year_month",
+    "base_salary",
+    "sunday_ot_days",
+    "public_holiday_work_days",
+    "unpaid_off_days",
+    "ot_day_rate",
+    "sunday_ot_amount",
+    "public_holiday_work_amount",
+    "unpaid_off_day_deduction",
+    "total_advance_deductions",
+    "final_payout",
+    "config_effective_start_date",
+    "calculated_at",
+  ],
+};
 
 describe("App", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it("renders the application shell and default salary screen", () => {
     render(<App />);
 
@@ -111,6 +182,101 @@ describe("App", () => {
       ]),
     );
     expect(await screen.findByText("Connected to sheet_online")).toBeInTheDocument();
+  });
+
+  it("checks the connected Google Sheet against live tabs and headers", async () => {
+    localStorage.setItem(
+      "helper-tracker:preferences",
+      JSON.stringify({
+        spreadsheetId: "sheet_online",
+      }),
+    );
+    const user = userEvent.setup();
+    const requestToken = vi.fn().mockResolvedValue("token_123");
+    const createGoogleTokenClient = vi.fn().mockReturnValue({ requestToken });
+    const getSpreadsheet = vi.fn().mockResolvedValue({
+      sheets: requiredSheets.map((title, index) => ({
+        properties: { title, sheetId: index + 1 },
+      })),
+    });
+    const getValues = vi.fn((_: string, range: string) => {
+      const sheetName = range.replace("!1:1", "") as keyof typeof requiredHeaderRows;
+      return Promise.resolve({ values: [requiredHeaderRows[sheetName]] });
+    });
+    const createGoogleSheetsClient = vi.fn().mockReturnValue({
+      batchUpdate: vi.fn(),
+      createSpreadsheet: vi.fn(),
+      getSpreadsheet,
+      getValues,
+    });
+
+    render(
+      <App
+        googleClientId="1234567890-valid.apps.googleusercontent.com"
+        createGoogleTokenClient={createGoogleTokenClient}
+        createGoogleSheetsClient={createGoogleSheetsClient}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Config" }));
+    await user.click(screen.getByRole("button", { name: "Run health check" }));
+
+    expect(requestToken).toHaveBeenCalledWith({ prompt: "consent" });
+    expect(getSpreadsheet).toHaveBeenCalledWith("sheet_online");
+    expect(getValues).toHaveBeenCalledWith("sheet_online", "Config!1:1");
+    expect(getValues).toHaveBeenCalledTimes(requiredSheets.length);
+    expect(await screen.findByText("Schema healthy")).toBeInTheDocument();
+  });
+
+  it("stores and restores setup from Google account app data", async () => {
+    const user = userEvent.setup();
+    const requestToken = vi.fn().mockResolvedValue("token_123");
+    const createGoogleTokenClient = vi.fn().mockReturnValue({ requestToken });
+    const readJsonFile = vi.fn().mockResolvedValue({
+      spreadsheetId: "sheet_from_account",
+      selectedMonth: "2026-08",
+      payCycleStartDay: 15,
+      googleClientId: "should-not-persist.apps.googleusercontent.com",
+    });
+    const writeJsonFile = vi.fn().mockResolvedValue(undefined);
+    const createGoogleDriveAppDataClient = vi.fn().mockReturnValue({
+      readJsonFile,
+      writeJsonFile,
+    });
+
+    render(
+      <App
+        googleClientId="1234567890-valid.apps.googleusercontent.com"
+        createGoogleTokenClient={createGoogleTokenClient}
+        createGoogleDriveAppDataClient={createGoogleDriveAppDataClient}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Config" }));
+    await user.click(screen.getByRole("button", { name: "Restore setup" }));
+
+    expect(createGoogleTokenClient).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clientId: "1234567890-valid.apps.googleusercontent.com",
+        scope: GOOGLE_DRIVE_APPDATA_SCOPE,
+      }),
+    );
+    expect(readJsonFile).toHaveBeenCalledWith("helper-tracker-preferences.json");
+    expect(
+      await screen.findByText("Connected to sheet_from_account"),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Selected month")).toHaveValue("2026-08");
+
+    await user.click(screen.getByRole("button", { name: "Save setup" }));
+
+    expect(writeJsonFile).toHaveBeenCalledWith(
+      "helper-tracker-preferences.json",
+      {
+        spreadsheetId: "sheet_from_account",
+        selectedMonth: "2026-08",
+        payCycleStartDay: 15,
+      },
+    );
   });
 
   it("does not connect legacy local ids returned by stale creation code", async () => {
