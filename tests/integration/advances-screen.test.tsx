@@ -80,6 +80,27 @@ describe("AdvancesScreen", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("shows the remaining advance amount left to schedule", async () => {
+    render(
+      <AdvancesScreen
+        advances={[]}
+        deductions={[]}
+        selectedMonth="2026-06"
+        onAddAdvance={vi.fn()}
+        onUpdateAdvance={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Add advance" }));
+    await userEvent.type(screen.getByLabelText("Advance amount"), "300");
+    await userEvent.type(screen.getByLabelText("Deduction amount 1"), "100");
+
+    expect(
+      screen.getByText("Left to schedule: SGD 200.00"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Schedule total:/)).not.toBeInTheDocument();
+  });
+
   it("shows selected-month advance deduction total", () => {
     render(
       <AdvancesScreen

@@ -171,6 +171,15 @@ function AdvanceForm({
       }, 0),
     [scheduleRows],
   );
+  const remainingToSchedule = useMemo(() => {
+    const parsedAmount = Number(amount);
+
+    if (!Number.isFinite(parsedAmount)) {
+      return 0 - scheduleTotal;
+    }
+
+    return parsedAmount - scheduleTotal;
+  }, [amount, scheduleTotal]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -300,7 +309,7 @@ function AdvanceForm({
           >
             Add deduction month
           </button>
-          <span>Schedule total: {formatSgd(scheduleTotal)}</span>
+          <span>Left to schedule: {formatSgd(remainingToSchedule)}</span>
         </div>
       </fieldset>
       {error ? <p role="alert">{error}</p> : null}
