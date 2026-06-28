@@ -150,6 +150,29 @@ describe("App", () => {
     expect(screen.getByText("Pay month 2026-08")).toBeInTheDocument();
   });
 
+  it("changes the pay month from the mobile month action", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(
+      screen.getByRole("button", { name: /Change pay month, current/ }),
+    );
+    expect(
+      screen.getByRole("dialog", { name: "Change pay month" }),
+    ).toBeInTheDocument();
+
+    await user.clear(screen.getByLabelText("Select pay month"));
+    await user.type(screen.getByLabelText("Select pay month"), "2026-08");
+    await user.click(screen.getByRole("button", { name: "Apply month" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByText("Pay month 2026-08")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Change pay month, current 2026-08" }),
+    ).toBeInTheDocument();
+  });
+
   it("creates an online Google Sheet through OAuth and connects the returned spreadsheet id", async () => {
     const user = userEvent.setup();
     const requestToken = vi.fn().mockResolvedValue("token_123");
@@ -722,7 +745,6 @@ describe("App", () => {
       />,
     );
 
-    expect(screen.getByText("Stale cached salary")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Config" }));
     expect(await screen.findByText("Fresh sheet salary")).toBeInTheDocument();
     expect(screen.queryByText("Stale cached salary")).not.toBeInTheDocument();

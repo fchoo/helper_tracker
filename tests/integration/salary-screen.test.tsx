@@ -77,13 +77,18 @@ describe("SalaryScreen", () => {
     expect(screen.getByRole("heading", { name: "Salary" })).toBeInTheDocument();
     expect(screen.getByText("Final payout")).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Salary plan history" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Active")).toBeInTheDocument();
-    expect(screen.getByText("SGD 980.00")).toBeInTheDocument();
+      screen.queryByRole("heading", { name: "Salary plan history" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Active")).not.toBeInTheDocument();
+    expect(screen.queryByText("Salary version")).not.toBeInTheDocument();
+    expect(screen.queryByText("Sunday rest days")).not.toBeInTheDocument();
     expect(screen.getAllByText("SGD 765.38").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Worked Sundays").length).toBeGreaterThan(0);
-    expect(screen.getByText("Loan")).toBeInTheDocument();
+    expect(screen.getByLabelText("Total advance deducted this pay month")).toHaveTextContent("SGD 100.00");
+    expect(screen.getByText("From Loan")).toBeInTheDocument();
+    expect(
+      screen.getByText("Advance given 2026-06-01, original SGD 300.00"),
+    ).toBeInTheDocument();
     expect(screen.getAllByText("Worked Sunday").length).toBeGreaterThan(0);
     expect(screen.getByText("Overlapping off day")).toBeInTheDocument();
   });

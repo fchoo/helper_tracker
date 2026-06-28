@@ -66,7 +66,11 @@ export function AdvancesScreen({
           <h2 id="advances-title">Advances</h2>
           <p>Deducted in pay month {selectedMonth}: {formatSgd(selectedMonthTotal)}</p>
         </div>
-        <button type="button" onClick={openAddDialog}>
+        <button
+          type="button"
+          className="mobile-floating-action"
+          onClick={openAddDialog}
+        >
           Add advance
         </button>
       </header>

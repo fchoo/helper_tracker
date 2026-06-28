@@ -217,6 +217,10 @@ small {
   max-width: 220px;
 }
 
+.mobile-month-fab {
+  display: none;
+}
+
 .primary-nav {
   position: fixed;
   right: 0;
@@ -363,6 +367,10 @@ small {
 
 .screen-header button {
   padding: 0 var(--space-4);
+}
+
+.mobile-floating-action {
+  white-space: nowrap;
 }
 
 .secondary-button {
@@ -701,10 +709,9 @@ small {
 
 .pay-panel {
   display: grid;
-  gap: var(--space-5);
+  gap: var(--space-3);
   border-color: #c8dadc;
-  border-left: 4px solid var(--primary);
-  box-shadow: var(--shadow-md);
+  border-left: 3px solid var(--primary);
 }
 
 .pay-panel > div {
@@ -735,7 +742,7 @@ small {
 }
 
 .pay-panel dl {
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
 }
 
 .pay-panel dd,
@@ -747,6 +754,34 @@ small {
 .pay-panel dd {
   color: var(--text);
   font-weight: 750;
+}
+
+.deduction-total {
+  display: grid;
+  gap: 2px;
+  justify-items: end;
+  min-width: 180px;
+}
+
+.deduction-total span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.deduction-total strong {
+  color: var(--text);
+  font-size: 1.35rem;
+  line-height: 1.1;
+}
+
+.deduction-list li {
+  gap: var(--space-1);
+}
+
+.deduction-list li strong {
+  font-size: 1.15rem;
 }
 
 .line-items > div,
@@ -852,6 +887,10 @@ small {
   border: 0;
   box-shadow: none;
   padding: 0;
+}
+
+.month-dialog-panel {
+  max-width: 360px;
 }
 
 .icon-button {
@@ -1034,6 +1073,70 @@ small {
   padding: var(--space-3);
 }
 
+@media (max-width: 759px) {
+  .app-shell {
+    padding: var(--space-4) var(--space-4) 160px;
+  }
+
+  .app-header {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .mobile-month-fab,
+  .mobile-floating-action {
+    position: fixed;
+    right: var(--space-4);
+    z-index: 20;
+    border-radius: 999px;
+    box-shadow: 0 14px 30px rgb(23 32 51 / 0.18);
+  }
+
+  .mobile-month-fab {
+    bottom: calc(66px + var(--space-4));
+    display: grid;
+    min-width: 132px;
+    min-height: 54px;
+    gap: 1px;
+    justify-items: end;
+    border: 1px solid var(--border-strong);
+    background: rgb(255 255 255 / 0.96);
+    color: var(--text);
+    padding: 8px var(--space-3);
+  }
+
+  .mobile-month-fab:hover {
+    background: #ffffff;
+    color: var(--text);
+  }
+
+  .mobile-month-fab span {
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    font-weight: 850;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  .mobile-month-fab strong {
+    color: var(--text);
+    font-size: 0.95rem;
+    line-height: 1.1;
+  }
+
+  .mobile-floating-action {
+    bottom: calc(122px + var(--space-4));
+    min-height: 52px;
+    padding: 0 var(--space-4);
+    background: var(--primary);
+    color: #ffffff;
+  }
+}
+
 @media (min-width: 760px) {
   .app-shell {
     display: grid;
@@ -1095,7 +1198,6 @@ small {
   .pay-panel {
     grid-template-columns: minmax(240px, 0.8fr) minmax(0, 1fr);
     align-items: center;
-    padding: var(--space-5);
   }
 }
 
@@ -1113,10 +1215,9 @@ small {
 
 @media (max-width: 520px) {
   .app-shell {
-    padding: var(--space-3) var(--space-3) 90px;
+    padding: var(--space-3) var(--space-3) 160px;
   }
 
-  .app-header,
   .stack-form,
   .panel-section,
   .pay-panel,

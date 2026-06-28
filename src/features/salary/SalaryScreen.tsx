@@ -6,7 +6,6 @@ import { formatRecordType } from "../time-records/dayEntry";
 import type { TimeRecord } from "../time-records/types";
 import { timeRecordOverlapsDateRange } from "../time-records/timeRecordMath";
 import { calculateMonthlyPayout } from "./calculateMonthlyPayout";
-import { SalaryPlanHistory } from "../config/SalaryPlanHistory";
 import { getPayCycleDateRangeForPayMonth, isMonthKey } from "../../lib/dates";
 import { formatSgd } from "../../lib/money";
 
@@ -47,17 +46,16 @@ export function SalaryScreen({
       timeRecords,
     ],
   );
-  const includedAdvanceIds = new Set(
-    advanceDeductions
-      .filter((deduction) => deduction.month === selectedMonth)
-      .map((deduction) => deduction.advanceId),
-  );
-  const includedAdvances = advances.filter((advance) =>
-    includedAdvanceIds.has(advance.id),
+  const advanceById = new Map(
+    advances.map((advance) => [advance.id, advance] as const),
   );
   const includedDeductions = advanceDeductions.filter(
     (deduction) => deduction.month === selectedMonth,
   );
+  const deductionRows = includedDeductions.map((deduction) => ({
+    deduction,
+    advance: advanceById.get(deduction.advanceId),
+  }));
   const visiblePayCycleRange = isMonthKey(selectedMonth)
     ? getPayCycleDateRangeForPayMonth(selectedMonth, summary.payCycleStartDay)
     : undefined;
@@ -86,22 +84,9 @@ export function SalaryScreen({
             <dd>{summary.payDate}</dd>
           </div>
           <div>
-            <dt>Salary version</dt>
-            <dd>{summary.configEffectiveStartDate ?? "Not configured"}</dd>
-          </div>
-          <div>
             <dt>Pay cycle</dt>
             <dd>
               {summary.payCycleStartDate} to {summary.payCycleEndDate}
-            </dd>
-          </div>
-          <div>
-            <dt>Sunday rest days</dt>
-            <dd>
-              {summary.defaultSundayOffDays} of {summary.sundayCount}
-              {summary.extraSundayCount
-                ? `, ${summary.extraSundayCount} extra Sunday to decide`
-                : ""}
             </dd>
           </div>
         </dl>
@@ -144,38 +129,38 @@ export function SalaryScreen({
         </dl>
       </section>
       <section
-        aria-labelledby="salary-plan-history-title"
-        className="panel-section salary-history-panel"
+        aria-labelledby="included-advances-title"
+        className="panel-section deduction-panel"
       >
         <div className="panel-header">
           <div>
-            <h3 id="salary-plan-history-title">Salary plan history</h3>
-            <p>Plans are ordered by effective date, with the plan used for this month marked active.</p>
+            <h3 id="included-advances-title">Advance deductions this pay month</h3>
+            <p>Scheduled deductions included in this payout.</p>
+          </div>
+          <div
+            className="deduction-total"
+            aria-label="Total advance deducted this pay month"
+          >
+            <span>Total deducted</span>
+            <strong>{formatSgd(summary.totalAdvanceDeductions)}</strong>
           </div>
         </div>
-        <SalaryPlanHistory
-          salaryConfigs={salaryConfigs}
-          activeEffectiveStartDate={summary.configEffectiveStartDate}
-          emptyMessage="No salary plans saved yet. Add one in Config before payroll review."
-        />
-      </section>
-      <section aria-labelledby="included-advances-title" className="panel-section">
-        <h3 id="included-advances-title">Advance deductions this pay month</h3>
-        {includedAdvances.length ? (
-          <ul className="record-list">
-            {includedAdvances.map((advance) => (
-              <li key={advance.id}>
-                <strong>{formatSgd(advance.amount)}</strong>
-                <span>{advance.date}</span>
-                {advance.description ? <span>{advance.description}</span> : null}
-                {includedDeductions
-                  .filter((deduction) => deduction.advanceId === advance.id)
-                  .map((deduction) => (
-                    <span key={deduction.id}>
-                      Deduct {formatSgd(deduction.amount)} in pay month{" "}
-                      {deduction.month}
-                    </span>
-                  ))}
+        {deductionRows.length ? (
+          <ul className="record-list deduction-list">
+            {deductionRows.map(({ deduction, advance }) => (
+              <li key={deduction.id}>
+                <strong>{formatSgd(deduction.amount)}</strong>
+                <span>
+                  {advance?.description
+                    ? `From ${advance.description}`
+                    : "Advance deduction"}
+                </span>
+                <span>
+                  {advance
+                    ? `Advance given ${advance.date}, original ${formatSgd(advance.amount)}`
+                    : "Advance details unavailable"}
+                </span>
+                {deduction.notes ? <span>{deduction.notes}</span> : null}
               </li>
             ))}
           </ul>

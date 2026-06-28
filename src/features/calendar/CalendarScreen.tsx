@@ -86,7 +86,11 @@ export function CalendarScreen({
           ) : null}
         </div>
         {onAddTimeRecord ? (
-          <button type="button" onClick={() => setTimeDialog({ mode: "add" })}>
+          <button
+            type="button"
+            className="mobile-floating-action"
+            onClick={() => setTimeDialog({ mode: "add" })}
+          >
             Add time
           </button>
         ) : null}

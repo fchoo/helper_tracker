@@ -47,9 +47,9 @@ test.beforeEach(async ({ page }) => {
 test("tracks a monthly helper payout from setup through salary review", async ({
   page,
 }) => {
-  await expect(page.getByRole("heading", { name: "Domestic Helper Tracker" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Salary" })).toBeVisible();
 
-  await page.getByRole("textbox", { name: "Pay month" }).fill("2026-08");
+  await setPayMonth(page, "2026-08");
   await page.getByRole("button", { name: "Config" }).click();
 
   await page
@@ -127,8 +127,13 @@ test("tracks a monthly helper payout from setup through salary review", async ({
   await expect(summaryItem(page, "Advance deductions")).toContainText("SGD 100.00");
   await expect(page.getByLabel("Pay decision")).toContainText("SGD 869.24");
   await expect(page.getByText("Final payout")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Salary plan history" })).toBeVisible();
-  await expect(page.getByText("School expense")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Salary plan history" }),
+  ).not.toBeVisible();
+  await expect(page.getByLabel("Total advance deducted this pay month")).toContainText(
+    "SGD 100.00",
+  );
+  await expect(page.getByText("From School expense")).toBeVisible();
   await expect(
     page
       .getByRole("list")
@@ -140,12 +145,30 @@ test("tracks a monthly helper payout from setup through salary review", async ({
 test("keeps navigation usable on desktop and Android-sized viewports", async ({
   page,
 }) => {
-  await assertResponsiveShell(page, { width: 1280, height: 720 }, "sticky");
-  await assertResponsiveShell(page, { width: 375, height: 812 }, "fixed");
+  await assertResponsiveShell(page, { width: 1280, height: 720 }, "desktop");
+  await assertResponsiveShell(page, { width: 375, height: 812 }, "mobile");
 });
 
 function summaryItem(page: Page, label: string) {
   return page.locator(".summary-item").filter({ hasText: label });
+}
+
+async function setPayMonth(page: Page, month: string) {
+  const mobileMonthButton = page.getByRole("button", {
+    name: /Change pay month, current/,
+  });
+
+  if (await mobileMonthButton.isVisible()) {
+    await mobileMonthButton.click();
+    await page.getByLabel("Select pay month").fill(month);
+    await page.getByRole("button", { name: "Apply month" }).click();
+    await expect(
+      page.getByRole("button", { name: `Change pay month, current ${month}` }),
+    ).toBeVisible();
+    return;
+  }
+
+  await page.getByRole("textbox", { name: "Pay month" }).fill(month);
 }
 
 const requiredSheets = [
@@ -217,7 +240,7 @@ const requiredHeaderRows: Record<(typeof requiredSheets)[number], string[]> = {
 async function assertResponsiveShell(
   page: Page,
   viewport: { width: number; height: number },
-  expectedNavPosition: "sticky" | "fixed",
+  expectedMode: "desktop" | "mobile",
 ) {
   await page.setViewportSize(viewport);
   await page.reload();
@@ -226,7 +249,7 @@ async function assertResponsiveShell(
   const navPosition = await page.locator(".primary-nav").evaluate((element) =>
     getComputedStyle(element).position,
   );
-  expect(navPosition).toBe(expectedNavPosition);
+  expect(navPosition).toBe(expectedMode === "desktop" ? "sticky" : "fixed");
 
   const hasHorizontalOverflow = await page.evaluate(
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
@@ -236,4 +259,53 @@ async function assertResponsiveShell(
   await expect(
     page.getByRole("heading", { name: "Time & Calendar" }),
   ).toBeVisible();
+
+  const appHeaderVisible = await page
+    .getByRole("heading", { name: "Domestic Helper Tracker" })
+    .isVisible();
+  const mobileMonthButton = page.getByRole("button", {
+    name: /Change pay month, current/,
+  });
+
+  if (expectedMode === "mobile") {
+    expect(appHeaderVisible).toBe(false);
+    await expect(mobileMonthButton).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add time" })).toBeVisible();
+
+    const floatingPositions = await page.evaluate(() => {
+      const monthButton = document.querySelector(".mobile-month-fab");
+      const addButton = document.querySelector(".mobile-floating-action");
+
+      if (!monthButton || !addButton) {
+        return null;
+      }
+
+      const monthStyle = getComputedStyle(monthButton);
+      const addStyle = getComputedStyle(addButton);
+      const monthRect = monthButton.getBoundingClientRect();
+      const addRect = addButton.getBoundingClientRect();
+
+      return {
+        monthPosition: monthStyle.position,
+        addPosition: addStyle.position,
+        monthRightGap: Math.round(window.innerWidth - monthRect.right),
+        addRightGap: Math.round(window.innerWidth - addRect.right),
+        addAboveMonth: addRect.bottom <= monthRect.top,
+      };
+    });
+
+    expect(floatingPositions).toEqual(
+      expect.objectContaining({
+        monthPosition: "fixed",
+        addPosition: "fixed",
+        monthRightGap: 16,
+        addRightGap: 16,
+        addAboveMonth: true,
+      }),
+    );
+    return;
+  }
+
+  expect(appHeaderVisible).toBe(true);
+  await expect(mobileMonthButton).not.toBeVisible();
 }

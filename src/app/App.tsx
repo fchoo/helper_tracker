@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   AdvancesScreen,
   type EditAdvancePayload,
@@ -114,6 +114,7 @@ export function App({
   const [selectedMonth, setSelectedMonth] = useState(
     cachedPreferences.selectedMonth ?? fallbackMonth,
   );
+  const [isMonthDialogOpen, setIsMonthDialogOpen] = useState(false);
   const [payCycleStartDay, setPayCycleStartDay] = useState(
     cachedPreferences.payCycleStartDay ?? defaultPayCycleStartDay,
   );
@@ -743,6 +744,15 @@ export function App({
           />
         </label>
       </header>
+      <button
+        type="button"
+        className="mobile-month-fab"
+        aria-label={`Change pay month, current ${selectedMonth}`}
+        onClick={() => setIsMonthDialogOpen(true)}
+      >
+        <span>Pay month</span>
+        <strong>{selectedMonth}</strong>
+      </button>
       <nav className="primary-nav" aria-label="Primary">
         {appRoutes.map((route) => (
           <button
@@ -757,6 +767,16 @@ export function App({
         ))}
       </nav>
       <div className="screen-frame">{renderActiveScreen(activeRoute)}</div>
+      {isMonthDialogOpen ? (
+        <MonthPickerDialog
+          selectedMonth={selectedMonth}
+          onClose={() => setIsMonthDialogOpen(false)}
+          onSubmit={(month) => {
+            handleMonthChange(month);
+            setIsMonthDialogOpen(false);
+          }}
+        />
+      ) : null}
     </main>
   );
 
@@ -823,6 +843,76 @@ export function App({
       />
     );
   }
+}
+
+function MonthPickerDialog({
+  selectedMonth,
+  onClose,
+  onSubmit,
+}: {
+  selectedMonth: string;
+  onClose: () => void;
+  onSubmit: (month: string) => void;
+}) {
+  const [month, setMonth] = useState(selectedMonth);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    dialogRef.current?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onSubmit(month);
+  }
+
+  return (
+    <div className="modal-backdrop" onMouseDown={onClose}>
+      <div
+        aria-labelledby="month-dialog-title"
+        aria-modal="true"
+        className="modal-panel month-dialog-panel"
+        onMouseDown={(event) => event.stopPropagation()}
+        ref={dialogRef}
+        role="dialog"
+        tabIndex={-1}
+      >
+        <div className="modal-header">
+          <div>
+            <h3 id="month-dialog-title">Change pay month</h3>
+          </div>
+          <button
+            type="button"
+            className="secondary-button icon-button"
+            aria-label="Close pay month picker"
+            onClick={onClose}
+          >
+            X
+          </button>
+        </div>
+        <form className="stack-form" onSubmit={handleSubmit}>
+          <label>
+            Select pay month
+            <input
+              type="month"
+              value={month}
+              onChange={(event) => setMonth(event.target.value)}
+            />
+          </label>
+          <button type="submit">Apply month</button>
+        </form>
+      </div>
+    </div>
+  );
 }
 
 function readCreatedSpreadsheetId(spreadsheet: unknown): string {
