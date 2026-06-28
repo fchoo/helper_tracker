@@ -1,5 +1,5 @@
 /* global URL, caches, fetch, self */
-const CACHE_NAME = "helper-tracker-static-v1";
+const CACHE_NAME = "helper-tracker-static-v2";
 const APP_SHELL = ["./", "manifest.webmanifest", "pwa-icon.svg"].map((path) =>
   new URL(path, self.registration.scope).toString(),
 );
@@ -33,6 +33,24 @@ self.addEventListener("fetch", (event) => {
 
   const requestUrl = new URL(event.request.url);
   if (requestUrl.origin !== self.location.origin) {
+    return;
+  }
+
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.ok) {
+            const responseToCache = response.clone();
+            void caches
+              .open(CACHE_NAME)
+              .then((cache) => cache.put(event.request, responseToCache));
+          }
+
+          return response;
+        })
+        .catch(() => caches.match(event.request)),
+    );
     return;
   }
 
