@@ -55,15 +55,15 @@ describe("SalaryScreen", () => {
           {
             id: "time_1",
             type: "SUNDAY_OT",
-            startDate: "2026-06-07",
-            endDate: "2026-06-07",
+            startDate: "2026-05-03",
+            endDate: "2026-05-03",
             notes: "Worked Sunday",
             createdAt,
           },
           {
             id: "time_2",
             type: "OFF_DAY",
-            startDate: "2026-05-31",
+            startDate: "2026-05-30",
             endDate: "2026-06-02",
             isPaidOffDay: false,
             notes: "Overlapping off day",
@@ -108,8 +108,8 @@ describe("SalaryScreen", () => {
           {
             id: "time_1",
             type: "SUNDAY_OT",
-            startDate: "2026-07-05",
-            endDate: "2026-07-05",
+            startDate: "2026-06-07",
+            endDate: "2026-06-07",
             notes: "Inside configured cycle",
             createdAt,
           },
@@ -118,8 +118,9 @@ describe("SalaryScreen", () => {
       />,
     );
 
-    expect(screen.getByText("Review 2026-06-26 to 2026-07-25")).toBeInTheDocument();
-    expect(screen.getByText("2026-07-26")).toBeInTheDocument();
+    expect(screen.getByText("Pay month 2026-06")).toBeInTheDocument();
+    expect(screen.getByText("2026-05-26 to 2026-06-25")).toBeInTheDocument();
+    expect(screen.getByText("2026-06-26")).toBeInTheDocument();
     expect(screen.getByText("Inside configured cycle")).toBeInTheDocument();
   });
 });

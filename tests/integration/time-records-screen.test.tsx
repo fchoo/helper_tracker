@@ -42,6 +42,7 @@ describe("TimeRecordsScreen", () => {
     );
 
     await userEvent.type(screen.getByLabelText("Start date"), "2026-06-10");
+    await userEvent.clear(screen.getByLabelText("End date"));
     await userEvent.type(screen.getByLabelText("End date"), "2026-06-09");
     await userEvent.click(screen.getByRole("button", { name: "Save day" }));
 
@@ -49,7 +50,7 @@ describe("TimeRecordsScreen", () => {
     expect(screen.getByText("End date must be on or after start date.")).toBeInTheDocument();
   });
 
-  it("shows selected-month counts", () => {
+  it("shows pay-cycle counts", () => {
     render(
       <TimeRecordsScreen
         selectedMonth="2026-06"
@@ -57,15 +58,15 @@ describe("TimeRecordsScreen", () => {
           {
             id: "time_1",
             type: "SUNDAY_OT",
-            startDate: "2026-06-07",
-            endDate: "2026-06-07",
+            startDate: "2026-05-03",
+            endDate: "2026-05-03",
             createdAt: "2026-06-27T12:00:00.000Z",
           },
           {
             id: "time_2",
             type: "OFF_DAY",
-            startDate: "2026-06-10",
-            endDate: "2026-06-11",
+            startDate: "2026-05-10",
+            endDate: "2026-05-11",
             isPaidOffDay: false,
             createdAt: "2026-06-27T12:00:00.000Z",
           },

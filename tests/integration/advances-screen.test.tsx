@@ -56,10 +56,12 @@ describe("AdvancesScreen", () => {
     await userEvent.type(screen.getByLabelText("Advance date"), "2026-06-01");
     await userEvent.type(screen.getByLabelText("Advance amount"), "300");
     await userEvent.type(screen.getByLabelText("Description"), "Loan");
-    await userEvent.type(screen.getByLabelText("Deduction month 1"), "2026-06");
+    await userEvent.type(screen.getByLabelText("Deduction pay month 1"), "2026-06");
     await userEvent.type(screen.getByLabelText("Deduction amount 1"), "100");
-    await userEvent.click(screen.getByRole("button", { name: "Add deduction month" }));
-    await userEvent.type(screen.getByLabelText("Deduction month 2"), "2026-07");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Add deduction pay month" }),
+    );
+    await userEvent.type(screen.getByLabelText("Deduction pay month 2"), "2026-07");
     await userEvent.type(screen.getByLabelText("Deduction amount 2"), "200");
     await userEvent.click(screen.getByRole("button", { name: "Save advance" }));
 
@@ -129,7 +131,7 @@ describe("AdvancesScreen", () => {
     );
 
     expect(
-      screen.getByText("Deducted in 2026-06: SGD 100.00"),
+      screen.getByText("Deducted in pay month 2026-06: SGD 100.00"),
     ).toBeInTheDocument();
   });
 

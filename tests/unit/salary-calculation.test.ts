@@ -55,15 +55,16 @@ describe("calculateMonthlyPayout", () => {
       advances: [],
       advanceDeductions: [],
       timeRecords: [
-        timeRecord("before_cycle", "SUNDAY_OT", "2026-06-21", "2026-06-21"),
-        timeRecord("inside_cycle", "SUNDAY_OT", "2026-06-28", "2026-06-28"),
-        timeRecord("overlap_cycle", "OFF_DAY", "2026-06-25", "2026-06-27", false),
+        timeRecord("before_cycle", "SUNDAY_OT", "2026-05-24", "2026-05-24"),
+        timeRecord("inside_cycle", "SUNDAY_OT", "2026-05-31", "2026-05-31"),
+        timeRecord("overlap_cycle", "OFF_DAY", "2026-06-24", "2026-06-27", false),
       ],
       publicHolidays: [],
     });
 
-    expect(summary.payCycleStartDate).toBe("2026-06-26");
-    expect(summary.payCycleEndDate).toBe("2026-07-25");
+    expect(summary.payCycleStartDate).toBe("2026-05-26");
+    expect(summary.payCycleEndDate).toBe("2026-06-25");
+    expect(summary.payDate).toBe("2026-06-26");
     expect(summary.sundayCount).toBe(4);
     expect(summary.sundayOtDays).toBe(1);
     expect(summary.unpaidOffDays).toBe(2);
@@ -80,9 +81,9 @@ describe("calculateMonthlyPayout", () => {
         deduction("ded_2", "adv_1", "2026-07", 200),
       ],
       timeRecords: [
-        timeRecord("time_1", "SUNDAY_OT", "2026-06-07", "2026-06-07"),
-        timeRecord("time_2", "PUBLIC_HOLIDAY_WORK", "2026-06-01", "2026-06-01"),
-        timeRecord("time_3", "OFF_DAY", "2026-06-10", "2026-06-11", false),
+        timeRecord("time_1", "SUNDAY_OT", "2026-05-03", "2026-05-03"),
+        timeRecord("time_2", "PUBLIC_HOLIDAY_WORK", "2026-05-01", "2026-05-01"),
+        timeRecord("time_3", "OFF_DAY", "2026-05-10", "2026-05-11", false),
       ],
       publicHolidays: [],
     });
@@ -91,8 +92,8 @@ describe("calculateMonthlyPayout", () => {
       month: "2026-06",
       baseSalary: 900,
       dailyRate: 34.62,
-      sundayCount: 4,
-      defaultSundayOffDays: 4,
+      sundayCount: 5,
+      defaultSundayOffDays: 5,
       extraSundayCount: 0,
       sundayOtDays: 1,
       publicHolidayWorkDays: 1,
@@ -131,8 +132,8 @@ describe("calculateMonthlyPayout", () => {
       publicHolidays: [],
     });
 
-    expect(summary.sundayCount).toBe(5);
-    expect(summary.defaultSundayOffDays).toBe(5);
+    expect(summary.sundayCount).toBe(4);
+    expect(summary.defaultSundayOffDays).toBe(4);
     expect(summary.extraSundayCount).toBe(0);
   });
 
@@ -152,18 +153,20 @@ describe("calculateMonthlyPayout", () => {
       publicHolidays: [],
     });
 
-    expect(summary.sundayCount).toBe(5);
-    expect(summary.defaultSundayOffDays).toBe(5);
+    expect(summary.sundayCount).toBe(4);
+    expect(summary.defaultSundayOffDays).toBe(4);
     expect(summary.extraSundayCount).toBe(0);
   });
 
-  it("counts only the portion of a time range that overlaps the selected month", () => {
+  it("counts only the portion of a time range that overlaps the pay cycle", () => {
     const summary = calculateMonthlyPayout({
       month: "2026-06",
       salaryConfigs: [config("cfg_1", 900, "2026-01-01")],
       advances: [],
       advanceDeductions: [],
-      timeRecords: [timeRecord("time_1", "OFF_DAY", "2026-05-31", "2026-06-02", false)],
+      timeRecords: [
+        timeRecord("time_1", "OFF_DAY", "2026-04-30", "2026-05-02", false),
+      ],
       publicHolidays: [],
     });
 

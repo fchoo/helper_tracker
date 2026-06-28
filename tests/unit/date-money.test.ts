@@ -5,6 +5,8 @@ import {
   countInclusiveDays,
   getCycleDateRange,
   getMonthDateRange,
+  getPayCycleDateRangeForPayMonth,
+  getPayDateForPayMonth,
   isDateInMonth,
   toMonthKey,
 } from "../../src/lib/dates";
@@ -34,6 +36,25 @@ describe("date helpers", () => {
       startDate: "2026-02-28",
       endDate: "2026-03-30",
     });
+  });
+
+  it("builds a pay date from the selected pay month", () => {
+    expect(getPayDateForPayMonth("2026-08", 26)).toBe("2026-08-26");
+  });
+
+  it("builds the pay cycle ending before the pay date month", () => {
+    expect(getPayCycleDateRangeForPayMonth("2026-08", 26)).toEqual({
+      startDate: "2026-07-26",
+      endDate: "2026-08-25",
+    });
+  });
+
+  it("clamps pay-month cycle boundaries to short months", () => {
+    expect(getPayCycleDateRangeForPayMonth("2026-03", 31)).toEqual({
+      startDate: "2026-02-28",
+      endDate: "2026-03-30",
+    });
+    expect(getPayDateForPayMonth("2026-02", 31)).toBe("2026-02-28");
   });
 
   it("counts inclusive days across a valid range", () => {

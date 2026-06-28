@@ -64,7 +64,7 @@ export function AdvancesScreen({
       <header className="screen-header">
         <div>
           <h2 id="advances-title">Advances</h2>
-          <p>Deducted in {selectedMonth}: {formatSgd(selectedMonthTotal)}</p>
+          <p>Deducted in pay month {selectedMonth}: {formatSgd(selectedMonthTotal)}</p>
         </div>
         <button type="button" onClick={openAddDialog}>
           Add advance
@@ -259,9 +259,9 @@ function AdvanceForm({
           {scheduleRows.map((row, index) => (
             <div className="schedule-row" key={row.id}>
               <label>
-                Month
+                Pay month
                 <input
-                  aria-label={`Deduction month ${index + 1}`}
+                  aria-label={`Deduction pay month ${index + 1}`}
                   type="month"
                   value={row.month}
                   onChange={(event) =>
@@ -307,7 +307,7 @@ function AdvanceForm({
             className="secondary-button"
             onClick={() => setScheduleRows((rows) => [...rows, createScheduleRow()])}
           >
-            Add deduction month
+            Add deduction pay month
           </button>
           <span>Left to schedule: {formatSgd(remainingToSchedule)}</span>
         </div>
@@ -438,7 +438,7 @@ function AdvanceHistory({
             onChange={(event) => onFilterChange(event.target.value)}
           >
             <option value="all">All advances</option>
-            <option value="selected">Deducted this month</option>
+            <option value="selected">Deducted this pay month</option>
           </select>
         </label>
       </div>

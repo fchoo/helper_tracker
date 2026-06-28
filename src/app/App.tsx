@@ -20,6 +20,7 @@ import {
 import type { SalaryConfig } from "../features/config/types";
 import { checkSpreadsheetHealth } from "../features/config/spreadsheetHealth";
 import { SalaryScreen } from "../features/salary/SalaryScreen";
+import { selectEffectiveSalaryConfig } from "../features/salary/calculateMonthlyPayout";
 import type { TimeRecord } from "../features/time-records/types";
 import { isMonthKey } from "../lib/dates";
 import {
@@ -131,6 +132,14 @@ export function App({
   );
   const [publicHolidays, setPublicHolidays] = useState<PublicHoliday[]>(
     cachedSheetRecords.publicHolidays,
+  );
+  const selectedPayCycleStartDay = useMemo(
+    () =>
+      isMonthKey(selectedMonth)
+        ? (selectEffectiveSalaryConfig(salaryConfigs, selectedMonth)
+            ?.payCycleStartDay ?? payCycleStartDay)
+        : payCycleStartDay,
+    [payCycleStartDay, salaryConfigs, selectedMonth],
   );
   const activeGoogleClientId = deploymentGoogleClientId ?? browserGoogleClientId;
   const googleSheetsAccessTokenRef = useRef<string | undefined>(undefined);
@@ -726,7 +735,7 @@ export function App({
           <h1 id="app-title">Domestic Helper Tracker</h1>
         </div>
         <label className="month-control">
-          Selected month
+          Pay month
           <input
             type="month"
             value={selectedMonth}
@@ -768,6 +777,7 @@ export function App({
       return (
         <CalendarScreen
           selectedMonth={selectedMonth}
+          payCycleStartDay={selectedPayCycleStartDay}
           publicHolidays={publicHolidays}
           timeRecords={timeRecords}
           onAddTimeRecord={handleAddTimeRecord}

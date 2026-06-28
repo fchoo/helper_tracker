@@ -7,7 +7,7 @@ import type { TimeRecord } from "../time-records/types";
 import { timeRecordOverlapsDateRange } from "../time-records/timeRecordMath";
 import { calculateMonthlyPayout } from "./calculateMonthlyPayout";
 import { SalaryPlanHistory } from "../config/SalaryPlanHistory";
-import { getCycleDateRange, isMonthKey } from "../../lib/dates";
+import { getPayCycleDateRangeForPayMonth, isMonthKey } from "../../lib/dates";
 import { formatSgd } from "../../lib/money";
 
 export type SalaryScreenProps = {
@@ -59,7 +59,7 @@ export function SalaryScreen({
     (deduction) => deduction.month === selectedMonth,
   );
   const visiblePayCycleRange = isMonthKey(selectedMonth)
-    ? getCycleDateRange(selectedMonth, summary.payCycleStartDay)
+    ? getPayCycleDateRangeForPayMonth(selectedMonth, summary.payCycleStartDay)
     : undefined;
   const includedTimeRecords = timeRecords.filter((record) =>
     visiblePayCycleRange
@@ -72,7 +72,7 @@ export function SalaryScreen({
       <header className="screen-header">
         <div>
           <h2 id="salary-title">Salary</h2>
-          <p>Review {summary.payCycleStartDate} to {summary.payCycleEndDate}</p>
+          <p>Pay month {selectedMonth}</p>
         </div>
       </header>
       <section className="pay-panel" aria-label="Pay decision">
@@ -160,7 +160,7 @@ export function SalaryScreen({
         />
       </section>
       <section aria-labelledby="included-advances-title" className="panel-section">
-        <h3 id="included-advances-title">Advance deductions this month</h3>
+        <h3 id="included-advances-title">Advance deductions this pay month</h3>
         {includedAdvances.length ? (
           <ul className="record-list">
             {includedAdvances.map((advance) => (
@@ -172,14 +172,15 @@ export function SalaryScreen({
                   .filter((deduction) => deduction.advanceId === advance.id)
                   .map((deduction) => (
                     <span key={deduction.id}>
-                      Deduct {formatSgd(deduction.amount)} in {deduction.month}
+                      Deduct {formatSgd(deduction.amount)} in pay month{" "}
+                      {deduction.month}
                     </span>
                   ))}
               </li>
             ))}
           </ul>
         ) : (
-          <p>No advances deducted this month.</p>
+          <p>No advances deducted this pay month.</p>
         )}
       </section>
       <section aria-labelledby="included-time-title" className="panel-section">
@@ -198,7 +199,7 @@ export function SalaryScreen({
             ))}
           </ul>
         ) : (
-          <p>No time records this month.</p>
+          <p>No time records in this pay cycle.</p>
         )}
       </section>
     </section>

@@ -60,6 +60,39 @@ export function getCycleDateRange(
   };
 }
 
+export function getPayDateForPayMonth(
+  payMonthKey: string,
+  payCycleStartDay: number = 1,
+): string {
+  assertMonthKey(payMonthKey);
+  assertMonthDay(payCycleStartDay);
+
+  const [year, month] = payMonthKey.split("-").map(Number);
+  return formatIsoDate(buildClampedMonthDate(year, month, payCycleStartDay));
+}
+
+export function getPayCycleDateRangeForPayMonth(
+  payMonthKey: string,
+  payCycleStartDay: number = 1,
+): DateRange {
+  assertMonthKey(payMonthKey);
+  assertMonthDay(payCycleStartDay);
+
+  const [year, month] = payMonthKey.split("-").map(Number);
+  const payDate = parseIsoDate(
+    getPayDateForPayMonth(payMonthKey, payCycleStartDay),
+  );
+  const endDate = new Date(payDate);
+  endDate.setUTCDate(endDate.getUTCDate() - 1);
+
+  return {
+    startDate: formatIsoDate(
+      buildClampedMonthDate(year, month - 1, payCycleStartDay),
+    ),
+    endDate: formatIsoDate(endDate),
+  };
+}
+
 export function countInclusiveDays(startDate: string, endDate: string): number {
   const start = parseValidatedIsoDate(startDate);
   const end = parseValidatedIsoDate(endDate);
@@ -145,7 +178,7 @@ function formatIsoDate(date: Date): string {
 
 function assertMonthDay(value: number): void {
   if (!Number.isInteger(value) || value < 1 || value > 31) {
-    throw new Error("Pay cycle start day must be between 1 and 31.");
+    throw new Error("Pay date day must be between 1 and 31.");
   }
 }
 

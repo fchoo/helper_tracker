@@ -4,10 +4,11 @@ import { describe, expect, it } from "vitest";
 import { CalendarScreen } from "../../src/features/calendar/CalendarScreen";
 
 describe("CalendarScreen", () => {
-  it("shows Sundays, public holidays, and time records for a month", () => {
+  it("shows Sundays, public holidays, and time records for a pay cycle", () => {
     render(
       <CalendarScreen
         selectedMonth="2026-08"
+        payCycleStartDay={26}
         publicHolidays={[
           {
             id: "holiday_1",
@@ -30,8 +31,8 @@ describe("CalendarScreen", () => {
           {
             id: "time_2",
             type: "OFF_DAY",
-            startDate: "2026-07-31",
-            endDate: "2026-08-02",
+            startDate: "2026-07-25",
+            endDate: "2026-07-27",
             isPaidOffDay: false,
             notes: "Overlapping off day",
             createdAt: "2026-06-27T12:00:00.000Z",
@@ -44,6 +45,8 @@ describe("CalendarScreen", () => {
     expect(screen.getAllByText("Sunday").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Worked Sunday").length).toBeGreaterThan(0);
     expect(screen.getByText("Overlapping off day")).toBeInTheDocument();
+    expect(screen.getByText("Jul 26")).toBeInTheDocument();
+    expect(screen.queryByText("Aug 26")).not.toBeInTheDocument();
   });
 
   it("opens day entry in a dialog and defaults end date to the start date", async () => {
@@ -53,6 +56,7 @@ describe("CalendarScreen", () => {
     render(
       <CalendarScreen
         selectedMonth="2026-08"
+        payCycleStartDay={26}
         publicHolidays={[
           {
             id: "holiday_1",
@@ -99,6 +103,7 @@ describe("CalendarScreen", () => {
     render(
       <CalendarScreen
         selectedMonth="2026-08"
+        payCycleStartDay={26}
         publicHolidays={[]}
         timeRecords={[]}
         onAddTimeRecord={() => undefined}
@@ -123,6 +128,7 @@ describe("CalendarScreen", () => {
     render(
       <CalendarScreen
         selectedMonth="2026-08"
+        payCycleStartDay={26}
         publicHolidays={[]}
         timeRecords={[
           {
@@ -156,7 +162,7 @@ describe("CalendarScreen", () => {
     );
   });
 
-  it("shows weekday headers above the monthly calendar", () => {
+  it("shows weekday headers above the pay cycle calendar", () => {
     render(
       <CalendarScreen selectedMonth="2026-08" publicHolidays={[]} timeRecords={[]} />,
     );

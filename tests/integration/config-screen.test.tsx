@@ -30,8 +30,8 @@ describe("ConfigScreen", () => {
     await userEvent.type(screen.getByLabelText("Effective start date"), "2026-06-01");
     await userEvent.clear(screen.getByLabelText("OT day divisor"));
     await userEvent.type(screen.getByLabelText("OT day divisor"), "26");
-    await userEvent.clear(screen.getByLabelText("Pay cycle start day"));
-    await userEvent.type(screen.getByLabelText("Pay cycle start day"), "26");
+    await userEvent.clear(screen.getByLabelText("Pay date day"));
+    await userEvent.type(screen.getByLabelText("Pay date day"), "26");
     await userEvent.type(screen.getByLabelText("Salary notes"), "June salary");
     await userEvent.click(screen.getByRole("button", { name: "Save salary plan" }));
 

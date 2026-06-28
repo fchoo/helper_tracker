@@ -78,7 +78,7 @@ src/
     summary/                      # Salary summary and breakdown components
   features/
     advances/                     # Advance CRUD UI and domain logic
-    calendar/                     # Monthly calendar, Sundays, public holidays
+    calendar/                     # Pay-cycle calendar, Sundays, public holidays
     config/                       # Salary settings and calculation rules
     salary/                       # Monthly review UI and calculation orchestration
     time-records/                 # Off day and overtime CRUD UI and logic
@@ -156,11 +156,13 @@ type PublicHoliday = {
 ```
 
 MVP calculation:
-- Base salary comes from the latest salary config effective on or before the selected month.
+- The selected month is the pay month: the month containing the pay date.
+- Base salary comes from the latest salary config effective on or before the selected pay month.
+- A pay date day of `26` for pay month `2026-08` reviews work from `2026-07-26` through `2026-08-25`, with pay due `2026-08-26`.
 - Worked-Sunday amount = `sundayOtDays * (monthlySalary / otDayDivisor)`.
 - Unpaid off day deduction = `unpaidOffDays * (monthlySalary / otDayDivisor)`.
 - Explicit PH extra pay = `publicHolidayWorkDays * (monthlySalary / otDayDivisor)`.
-- Advance deductions come from the advance deduction schedule for the selected month, not necessarily the date when cash was given.
+- Advance deductions come from the advance deduction schedule for the selected pay month, not necessarily the date when cash was given.
 - Deduction schedule line items must sum exactly to the total advance amount.
 - Singapore public holidays are visible in the calendar and monthly review. Work on a public holiday is the default assumption and has no pay impact unless the employer explicitly records PH extra pay.
 - Final payout = `baseSalary + sundayOvertimeAmount + publicHolidayWorkAmount - unpaidOffDayDeduction - advanceDeductions`.
@@ -252,22 +254,22 @@ Conventions:
 MVP screens:
 1. Salary
    - Default screen.
-   - Month selector.
+   - Pay month selector.
    - Summary values: base salary, daily rate, worked Sunday days, worked Sunday amount, explicit PH extra pay, extra unpaid days off, unpaid day deduction, advance deductions, final payout.
    - Breakdown of included advances and time records.
 2. Advances
    - Add, edit, delete advances.
    - Fields: date, amount, description, deduction schedule.
    - Validate that split deduction schedule totals match the advance amount.
-   - Filter by selected month.
+   - Filter by selected pay month.
 3. Time
    - Add, edit, delete day records.
    - Fields: start date, end date, what happened, notes.
    - Sundays are shown as rest days by default; worked Sundays are recorded as extra pay.
    - Public holidays are shown as expected work days by default; PH work only affects pay when explicit extra PH pay is selected.
-   - Monthly counts for worked Sundays, explicit PH extra pay, and extra unpaid days off.
+   - Pay-cycle counts for worked Sundays, explicit PH extra pay, and extra unpaid days off.
 4. Calendar
-   - Month view showing Sundays, Singapore public holidays, off days, worked Sundays, and explicit PH extra pay.
+   - Pay-cycle view showing Sundays, Singapore public holidays, off days, worked Sundays, and explicit PH extra pay.
    - Import or refresh Singapore public holidays for a selected year.
 5. Config
    - Add salary version.
@@ -285,7 +287,7 @@ Post-MVP candidates from `../helper_app`:
 Unit tests:
 - Salary config effective-date selection.
 - Monthly payout formula.
-- Date range overlap with selected month.
+- Date range overlap with the selected pay cycle.
 - Advance deduction schedule validation and month filtering.
 - Sunday default rest-day generation for each month.
 - Singapore public holiday import normalization.
@@ -328,7 +330,7 @@ Coverage expectations:
 - The app can be installed or used as a PWA after MVP PWA setup is added.
 - A user can connect or initialize a Google Sheet.
 - A user can add one salary config, one split-deduction advance, one extra unpaid day off, one worked Sunday record, one public holiday record/import, and one explicit PH extra-pay record.
-- The selected month salary page shows a correct final payout and a readable breakdown.
+- The selected pay month salary page shows a correct final payout and a readable breakdown.
 - Editing or deleting an advance or time record updates the monthly payout.
 - Adding a future salary config does not change calculations for months before its effective date.
 - Records are persisted in Google Sheets and visible after browser refresh.

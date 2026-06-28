@@ -49,7 +49,7 @@ test("tracks a monthly helper payout from setup through salary review", async ({
 }) => {
   await expect(page.getByRole("heading", { name: "Domestic Helper Tracker" })).toBeVisible();
 
-  await page.getByLabel("Selected month").fill("2026-08");
+  await page.getByRole("textbox", { name: "Pay month" }).fill("2026-08");
   await page.getByRole("button", { name: "Config" }).click();
 
   await page
@@ -64,6 +64,8 @@ test("tracks a monthly helper payout from setup through salary review", async ({
 
   await page.getByLabel("Monthly salary").fill("900");
   await page.getByLabel("Effective start date").fill("2026-01-01");
+  await page.getByText("Advanced pay settings").click();
+  await page.getByLabel("Pay date day").fill("26");
   await page.getByLabel("Salary notes").fill("Current contract");
   await page.getByRole("button", { name: "Save salary plan" }).click();
   await expect(page.getByText("SGD 900.00")).toBeVisible();
@@ -79,14 +81,16 @@ test("tracks a monthly helper payout from setup through salary review", async ({
   await page.getByLabel("Advance date").fill("2026-08-02");
   await page.getByLabel("Advance amount").fill("300");
   await page.getByLabel("Description").fill("School expense");
-  await page.getByLabel("Deduction month 1").fill("2026-08");
+  await page.getByLabel("Deduction pay month 1").fill("2026-08");
   await page.getByLabel("Deduction amount 1").fill("100");
-  await page.getByRole("button", { name: "Add deduction month" }).click();
-  await page.getByLabel("Deduction month 2").fill("2026-09");
+  await page.getByRole("button", { name: "Add deduction pay month" }).click();
+  await page.getByLabel("Deduction pay month 2").fill("2026-09");
   await page.getByLabel("Deduction amount 2").fill("200");
   await page.getByRole("button", { name: "Save advance" }).click();
   await expect(page.getByRole("status")).toContainText("Advance saved.");
-  await expect(page.getByText("Deducted in 2026-08: SGD 100.00")).toBeVisible();
+  await expect(
+    page.getByText("Deducted in pay month 2026-08: SGD 100.00"),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "Time & Calendar" }).click();
   await page.getByRole("button", { name: "Add time" }).click();
@@ -107,7 +111,7 @@ test("tracks a monthly helper payout from setup through salary review", async ({
   await page.getByRole("button", { name: "Save day" }).click();
   await expect(page.getByLabel("Time records").getByText("Extra PH pay")).toBeVisible();
 
-  const calendar = page.getByRole("list", { name: "Monthly calendar" });
+  const calendar = page.getByRole("list", { name: "Pay cycle calendar" });
   const sundayHoliday = calendar
     .getByRole("listitem")
     .filter({ hasText: "09" })

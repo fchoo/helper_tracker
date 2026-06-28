@@ -8,7 +8,8 @@ import { countTimeRecordsForDateRange } from "../time-records/timeRecordMath";
 import type { MonthlyPayoutInput, MonthlySummary } from "./types";
 import {
   type DateRange,
-  getCycleDateRange,
+  getPayCycleDateRangeForPayMonth,
+  getPayDateForPayMonth,
   isMonthKey,
   parseValidatedIsoDate,
 } from "../../lib/dates";
@@ -46,8 +47,11 @@ export function calculateMonthlyPayout(
   const otDayDivisor = config?.otDayDivisor ?? 26;
   const payCycleStartDay =
     input.payCycleStartDay ?? config?.payCycleStartDay ?? 1;
-  const payCycleRange = getCycleDateRange(input.month, payCycleStartDay);
-  const payDate = getNextDay(payCycleRange.endDate);
+  const payCycleRange = getPayCycleDateRangeForPayMonth(
+    input.month,
+    payCycleStartDay,
+  );
+  const payDate = getPayDateForPayMonth(input.month, payCycleStartDay);
   const dailyRate = roundMoney(baseSalary / otDayDivisor);
   const sundayCount = countSundaysInRange(payCycleRange);
   const defaultSundayOffDays = resolveDefaultSundayOffDays(config, sundayCount);
@@ -139,10 +143,4 @@ function countSundaysInRange(range: DateRange): number {
   }
 
   return count;
-}
-
-function getNextDay(date: string): string {
-  const nextDate = parseValidatedIsoDate(date);
-  nextDate.setUTCDate(nextDate.getUTCDate() + 1);
-  return nextDate.toISOString().slice(0, 10);
 }

@@ -138,7 +138,7 @@ function SalaryConfigForm({
     const cycleStartDay = Number(payCycleStartDay);
 
     if (!Number.isInteger(cycleStartDay) || cycleStartDay < 1 || cycleStartDay > 31) {
-      setError("Pay cycle start day must be between 1 and 31.");
+      setError("Pay date day must be between 1 and 31.");
       return;
     }
 
@@ -197,7 +197,7 @@ function SalaryConfigForm({
           />
         </label>
         <label>
-          Pay cycle start day
+          Pay date day
           <input
             inputMode="numeric"
             value={payCycleStartDay}

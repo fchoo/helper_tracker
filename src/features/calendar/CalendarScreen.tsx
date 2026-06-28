@@ -7,14 +7,19 @@ import {
 } from "../time-records/dayEntry";
 import type { TimeRecord } from "../time-records/types";
 import {
-  countTimeRecordsForMonth,
-  timeRecordOverlapsMonth,
+  countTimeRecordsForDateRange,
+  timeRecordOverlapsDateRange,
 } from "../time-records/timeRecordMath";
 import type { PublicHoliday } from "./types";
-import { getMonthDateRange, isMonthKey } from "../../lib/dates";
+import {
+  type DateRange,
+  getPayCycleDateRangeForPayMonth,
+  isMonthKey,
+} from "../../lib/dates";
 
 export type CalendarScreenProps = {
   selectedMonth: string;
+  payCycleStartDay?: number;
   publicHolidays: PublicHoliday[];
   timeRecords: TimeRecord[];
   onAddTimeRecord?: (record: NewTimeRecordInput) => Promise<void> | void;
@@ -32,20 +37,40 @@ const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export function CalendarScreen({
   selectedMonth,
+  payCycleStartDay = 1,
   publicHolidays,
   timeRecords,
   onAddTimeRecord,
   onUpdateTimeRecord,
 }: CalendarScreenProps) {
-  const days = useMemo(() => buildCalendarDays(selectedMonth), [selectedMonth]);
+  const payCycleRange = useMemo(
+    () =>
+      isMonthKey(selectedMonth)
+        ? getPayCycleDateRangeForPayMonth(selectedMonth, payCycleStartDay)
+        : null,
+    [payCycleStartDay, selectedMonth],
+  );
+  const days = useMemo(() => buildCalendarDays(payCycleRange), [payCycleRange]);
   const counts = useMemo(
-    () => countTimeRecordsForMonth(timeRecords, selectedMonth),
-    [timeRecords, selectedMonth],
+    () =>
+      payCycleRange
+        ? countTimeRecordsForDateRange(timeRecords, payCycleRange)
+        : { sundayOtDays: 0, publicHolidayWorkDays: 0, unpaidOffDays: 0 },
+    [payCycleRange, timeRecords],
   );
   const [timeDialog, setTimeDialog] = useState<TimeDialogState>(null);
   const publicHolidayDates = useMemo(
     () => new Set(publicHolidays.map((holiday) => holiday.date)),
     [publicHolidays],
+  );
+  const payCycleHolidayCount = useMemo(
+    () =>
+      payCycleRange
+        ? publicHolidays.filter((holiday) =>
+            isDateInRange(holiday.date, payCycleRange),
+          ).length
+        : 0,
+    [payCycleRange, publicHolidays],
   );
 
   return (
@@ -53,7 +78,12 @@ export function CalendarScreen({
       <header className="screen-header">
         <div>
           <h2 id="calendar-title">Time & Calendar</h2>
-          <p>{selectedMonth}</p>
+          <p>Pay month {selectedMonth}</p>
+          {payCycleRange ? (
+            <p>
+              Pay cycle {payCycleRange.startDate} to {payCycleRange.endDate}
+            </p>
+          ) : null}
         </div>
         {onAddTimeRecord ? (
           <button type="button" onClick={() => setTimeDialog({ mode: "add" })}>
@@ -61,7 +91,7 @@ export function CalendarScreen({
           </button>
         ) : null}
       </header>
-      <section className="summary-grid" aria-label="Monthly time summary">
+      <section className="summary-grid" aria-label="Pay cycle time summary">
         <SummaryItem label="Worked Sundays" value={String(counts.sundayOtDays)} />
         <SummaryItem
           label="Extra PH pay"
@@ -73,10 +103,7 @@ export function CalendarScreen({
         />
         <SummaryItem
           label="Public holidays"
-          value={String(
-            publicHolidays.filter((holiday) => holiday.date.startsWith(selectedMonth))
-              .length,
-          )}
+          value={String(payCycleHolidayCount)}
         />
       </section>
       <div className="calendar-workspace">
@@ -85,7 +112,7 @@ export function CalendarScreen({
           className="panel-section history-panel"
         >
           <TimeRecordList
-            selectedMonth={selectedMonth}
+            payCycleRange={payCycleRange}
             timeRecords={timeRecords}
             onEditTimeRecord={onUpdateTimeRecord ? openEditDialog : undefined}
           />
@@ -95,15 +122,15 @@ export function CalendarScreen({
           className="panel-section month-board"
         >
           <div className="panel-header">
-            <h3 id="month-board-title">Month view</h3>
+            <h3 id="month-board-title">Pay cycle view</h3>
           </div>
           <div className="weekday-header" aria-hidden="true">
             {weekdayLabels.map((label) => (
               <span key={label}>{label}</span>
             ))}
           </div>
-          <div className="calendar-grid" role="list" aria-label="Monthly calendar">
-            {days.map((date) => {
+          <div className="calendar-grid" role="list" aria-label="Pay cycle calendar">
+            {days.map((date, index) => {
               const holidays = publicHolidays.filter(
                 (holiday) => holiday.date === date,
               );
@@ -114,11 +141,11 @@ export function CalendarScreen({
 
               return (
                 <article
-                  className={`calendar-day${date.endsWith("-01") ? ` calendar-start-${getWeekdayColumn(date)}` : ""}`}
+                  className={`calendar-day${index === 0 ? ` calendar-start-${getWeekdayColumn(date)}` : ""}`}
                   key={date}
                   role="listitem"
                 >
-                  <strong>{date.slice(8)}</strong>
+                  <strong>{formatCalendarDayLabel(date)}</strong>
                   {isSunday ? <span>Sunday</span> : null}
                   {holidays.map((holiday) => (
                     <span key={holiday.id}>{holiday.name}</span>
@@ -389,16 +416,16 @@ function TimeRecordForm({
 }
 
 function TimeRecordList({
-  selectedMonth,
+  payCycleRange,
   timeRecords,
   onEditTimeRecord,
 }: {
-  selectedMonth: string;
+  payCycleRange: DateRange | null;
   timeRecords: TimeRecord[];
   onEditTimeRecord?: (record: TimeRecord) => void;
 }) {
   const visibleRecords = timeRecords.filter((record) =>
-    timeRecordOverlapsMonth(record, selectedMonth),
+    payCycleRange ? timeRecordOverlapsDateRange(record, payCycleRange) : false,
   );
 
   return (
@@ -430,7 +457,7 @@ function TimeRecordList({
           ))}
         </ul>
       ) : (
-        <p>No time records this month.</p>
+        <p>No time records in this pay cycle.</p>
       )}
     </>
   );
@@ -465,12 +492,11 @@ function actionFromRecord(record: TimeRecord | null): DayEntryAction {
   return "WORKED";
 }
 
-function buildCalendarDays(month: string): string[] {
-  if (!isMonthKey(month)) {
+function buildCalendarDays(range: DateRange | null): string[] {
+  if (!range) {
     return [];
   }
 
-  const range = getMonthDateRange(month);
   const days: string[] = [];
   const current = new Date(`${range.startDate}T00:00:00.000Z`);
   const end = new Date(`${range.endDate}T00:00:00.000Z`);
@@ -486,4 +512,28 @@ function buildCalendarDays(month: string): string[] {
 function getWeekdayColumn(date: string): number {
   const day = new Date(`${date}T00:00:00.000Z`).getUTCDay();
   return day === 0 ? 7 : day;
+}
+
+function isDateInRange(date: string, range: DateRange): boolean {
+  return date >= range.startDate && date <= range.endDate;
+}
+
+function formatCalendarDayLabel(date: string): string {
+  const monthNames = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  const [, month, day] = date.split("-").map(Number);
+
+  return `${monthNames[month - 1]} ${String(day).padStart(2, "0")}`;
 }

@@ -117,7 +117,7 @@ describe("App", () => {
       screen.getByRole("heading", { name: "Domestic Helper Tracker" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Salary" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Selected month")).toBeInTheDocument();
+    expect(screen.getByLabelText("Pay month")).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Primary" })).toBeInTheDocument();
   });
 
@@ -138,16 +138,16 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Configuration" })).toBeInTheDocument();
   });
 
-  it("shares the selected month across screens", async () => {
+  it("shares the pay month across screens", async () => {
     const user = userEvent.setup();
 
     render(<App />);
 
-    await user.clear(screen.getByLabelText("Selected month"));
-    await user.type(screen.getByLabelText("Selected month"), "2026-08");
+    await user.clear(screen.getByLabelText("Pay month"));
+    await user.type(screen.getByLabelText("Pay month"), "2026-08");
     await user.click(screen.getByRole("button", { name: "Time & Calendar" }));
 
-    expect(screen.getByText("2026-08")).toBeInTheDocument();
+    expect(screen.getByText("Pay month 2026-08")).toBeInTheDocument();
   });
 
   it("creates an online Google Sheet through OAuth and connects the returned spreadsheet id", async () => {
@@ -312,7 +312,7 @@ describe("App", () => {
     expect(
       await screen.findByText("Connected to sheet_from_account"),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Selected month")).toHaveValue("2026-08");
+    expect(screen.getByLabelText("Pay month")).toHaveValue("2026-08");
     expect(await screen.findByText("Restored salary")).toBeInTheDocument();
     expect(createGoogleTokenClient).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -422,7 +422,7 @@ describe("App", () => {
           "920",
           "2026-01-01",
           "26",
-          "1",
+          "26",
           "ALL_SUNDAYS",
           "",
           "Loaded plan",
@@ -549,7 +549,7 @@ describe("App", () => {
     await user.type(screen.getByLabelText("Advance date"), "2026-08-01");
     await user.type(screen.getByLabelText("Advance amount"), "200");
     await user.type(screen.getByLabelText("Description"), "Saved advance");
-    await user.type(screen.getByLabelText("Deduction month 1"), "2026-08");
+    await user.type(screen.getByLabelText("Deduction pay month 1"), "2026-08");
     await user.type(screen.getByLabelText("Deduction amount 1"), "200");
     await user.click(screen.getByRole("button", { name: "Save advance" }));
 

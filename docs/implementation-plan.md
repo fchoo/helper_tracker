@@ -83,7 +83,7 @@ Project scaffold, env config, and static hosting target
 **Description:** Build pure functions for effective salary config selection, split advance filtering, Sunday/public-holiday counts, and final payout calculation.
 
 **Acceptance criteria:**
-- [ ] Latest config effective on or before the selected month is selected.
+- [ ] Latest config effective on or before the selected pay month is selected.
 - [ ] Advance deductions are included by deduction month and must sum to their parent advance in validation.
 - [ ] Sunday overtime and public-holiday work are added using the configured divisor.
 - [ ] The Sunday assumption is encoded as explicit tests.
@@ -158,7 +158,7 @@ Project scaffold, env config, and static hosting target
 
 **Acceptance criteria:**
 - [ ] CRUD repository functions exist for each raw sheet.
-- [ ] Spreadsheet ID and selected month survive refresh.
+- [ ] Spreadsheet ID and selected pay month survive refresh.
 - [ ] Repository functions return typed domain objects.
 
 **Verification:**

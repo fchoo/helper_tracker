@@ -7,12 +7,14 @@ import {
   type DayEntryAction,
 } from "./dayEntry";
 import type { TimeRecord } from "./types";
-import { countTimeRecordsForMonth } from "./timeRecordMath";
+import { countTimeRecordsForDateRange } from "./timeRecordMath";
+import { getPayCycleDateRangeForPayMonth, isMonthKey } from "../../lib/dates";
 
 export type NewTimeRecordInput = Omit<TimeRecord, "id" | "createdAt">;
 
 export type TimeRecordsScreenProps = {
   selectedMonth: string;
+  payCycleStartDay?: number;
   publicHolidays?: PublicHoliday[];
   timeRecords: TimeRecord[];
   onAddTimeRecord: (record: NewTimeRecordInput) => Promise<void> | void;
@@ -20,13 +22,24 @@ export type TimeRecordsScreenProps = {
 
 export function TimeRecordsScreen({
   selectedMonth,
+  payCycleStartDay = 1,
   publicHolidays = [],
   timeRecords,
   onAddTimeRecord,
 }: TimeRecordsScreenProps) {
+  const payCycleRange = useMemo(
+    () =>
+      isMonthKey(selectedMonth)
+        ? getPayCycleDateRangeForPayMonth(selectedMonth, payCycleStartDay)
+        : null,
+    [payCycleStartDay, selectedMonth],
+  );
   const counts = useMemo(
-    () => countTimeRecordsForMonth(timeRecords, selectedMonth),
-    [timeRecords, selectedMonth],
+    () =>
+      payCycleRange
+        ? countTimeRecordsForDateRange(timeRecords, payCycleRange)
+        : { sundayOtDays: 0, publicHolidayWorkDays: 0, unpaidOffDays: 0 },
+    [payCycleRange, timeRecords],
   );
   const publicHolidayDates = useMemo(
     () => new Set(publicHolidays.map((holiday) => holiday.date)),
@@ -36,7 +49,15 @@ export function TimeRecordsScreen({
   return (
     <section aria-labelledby="time-records-title" className="screen">
       <header className="screen-header">
-        <h2 id="time-records-title">Time Records</h2>
+        <div>
+          <h2 id="time-records-title">Time Records</h2>
+          <p>Pay month {selectedMonth}</p>
+          {payCycleRange ? (
+            <p>
+              Pay cycle {payCycleRange.startDate} to {payCycleRange.endDate}
+            </p>
+          ) : null}
+        </div>
         <p>Worked Sundays: {counts.sundayOtDays}</p>
         <p>Extra unpaid days off: {counts.unpaidOffDays}</p>
       </header>
@@ -118,6 +139,13 @@ function TimeRecordForm({
     setNotes("");
   }
 
+  function handleStartDateChange(value: string) {
+    setStartDate(value);
+    if (!endDate || endDate === startDate) {
+      setEndDate(value);
+    }
+  }
+
   return (
     <form className="stack-form" onSubmit={handleSubmit}>
       <label>
@@ -125,7 +153,7 @@ function TimeRecordForm({
         <input
           type="date"
           value={startDate}
-          onChange={(event) => setStartDate(event.target.value)}
+          onChange={(event) => handleStartDateChange(event.target.value)}
         />
       </label>
       <label>
