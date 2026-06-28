@@ -2,7 +2,10 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { AdvancesScreen } from "../../src/features/advances/AdvancesScreen";
-import { parseAdvanceScheduleText } from "../../src/features/advances/advanceSchedule";
+import {
+  parseAdvanceScheduleText,
+  validateStructuredAdvanceSchedule,
+} from "../../src/features/advances/advanceSchedule";
 
 describe("parseAdvanceScheduleText", () => {
   it("parses split deduction lines", () => {
@@ -18,6 +21,20 @@ describe("parseAdvanceScheduleText", () => {
     expect(() => parseAdvanceScheduleText("2026-06: 100", 300)).toThrow(
       "Deduction schedule total must match the advance amount.",
     );
+  });
+});
+
+describe("validateStructuredAdvanceSchedule", () => {
+  it("rejects repeated deduction months", () => {
+    expect(() =>
+      validateStructuredAdvanceSchedule(
+        [
+          { month: "2026-06", amount: 100, notes: "" },
+          { month: "2026-06", amount: 200, notes: "" },
+        ],
+        300,
+      ),
+    ).toThrow("Deduction schedule cannot repeat the same month.");
   });
 });
 

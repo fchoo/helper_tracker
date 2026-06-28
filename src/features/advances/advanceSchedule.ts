@@ -98,6 +98,14 @@ export function validateStructuredAdvanceSchedule(
     }
   }
 
+  const months = new Set<string>();
+  for (const deduction of deductions) {
+    if (months.has(deduction.month)) {
+      throw new Error("Deduction schedule cannot repeat the same month.");
+    }
+    months.add(deduction.month);
+  }
+
   const scheduleTotal = roundMoney(
     deductions.reduce((total, deduction) => total + deduction.amount, 0),
   );
