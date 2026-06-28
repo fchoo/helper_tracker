@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   AdvancesScreen,
   type EditAdvancePayload,
@@ -32,7 +32,9 @@ import { fetchSingaporePublicHolidays } from "../integrations/singapore/publicHo
 import { normalizeGoogleClientId } from "../integrations/google/clientId";
 import { normalizeGoogleSpreadsheetId } from "../integrations/google/spreadsheetId";
 import {
+  GOOGLE_APP_SCOPES,
   GOOGLE_DRIVE_APPDATA_SCOPE,
+  GOOGLE_SHEETS_SCOPE,
   createGoogleTokenClient as createDefaultGoogleTokenClient,
   type AppGoogleTokenClient,
 } from "../integrations/google/auth";
@@ -44,15 +46,21 @@ import {
   getRequiredSheetSchemas,
   type SpreadsheetMetadata,
 } from "../integrations/google/spreadsheetSchema";
+import { SheetsRepository } from "../persistence/sheetsRepository";
 import { appRoutes, type AppRouteId } from "./routes";
 
 const fallbackMonth = new Date().toISOString().slice(0, 7);
 const defaultPayCycleStartDay = 1;
 const accountPreferencesFileName = "helper-tracker-preferences.json";
 
-type GoogleSheetsCreateClient = Pick<
+type GoogleSheetsAppClient = Pick<
   GoogleSheetsClient,
-  "batchUpdate" | "createSpreadsheet" | "getSpreadsheet" | "getValues"
+  | "appendValues"
+  | "batchUpdate"
+  | "createSpreadsheet"
+  | "getSpreadsheet"
+  | "getValues"
+  | "updateValues"
 >;
 type GoogleAccountStorageClient = Pick<
   GoogleDriveAppDataClient,
@@ -67,7 +75,7 @@ export type AppProps = {
   }) => AppGoogleTokenClient;
   createGoogleSheetsClient?: (options: {
     accessToken: string;
-  }) => GoogleSheetsCreateClient;
+  }) => GoogleSheetsAppClient;
   createGoogleDriveAppDataClient?: (options: {
     accessToken: string;
   }) => GoogleAccountStorageClient;
@@ -101,6 +109,7 @@ export function App({
   const [timeRecords, setTimeRecords] = useState<TimeRecord[]>([]);
   const [publicHolidays, setPublicHolidays] = useState<PublicHoliday[]>([]);
   const activeGoogleClientId = deploymentGoogleClientId ?? browserGoogleClientId;
+  const googleSheetsAccessTokenRef = useRef<string | undefined>(undefined);
 
   function buildCurrentPreferences(
     overrides: CachedAppPreferences = {},
@@ -126,7 +135,7 @@ export function App({
     }
   }
 
-  function handleConnectSpreadsheet(nextSpreadsheetId: string) {
+  async function handleConnectSpreadsheet(nextSpreadsheetId: string) {
     const normalizedSpreadsheetId = normalizeGoogleSpreadsheetId(nextSpreadsheetId);
 
     if (!normalizedSpreadsheetId) {
@@ -135,6 +144,7 @@ export function App({
 
     setSpreadsheetId(normalizedSpreadsheetId);
     cachePreferences({ spreadsheetId: normalizedSpreadsheetId });
+    await loadSpreadsheetRecords(normalizedSpreadsheetId);
   }
 
   function handleSaveGoogleClientId(nextGoogleClientId: string) {
@@ -158,8 +168,12 @@ export function App({
       throw new Error("Add a Google OAuth Client ID before creating an online Google Sheet.");
     }
 
-    const tokenClient = createGoogleTokenClient({ clientId: activeGoogleClientId });
+    const tokenClient = createGoogleTokenClient({
+      clientId: activeGoogleClientId,
+      scope: GOOGLE_APP_SCOPES,
+    });
     const accessToken = await tokenClient.requestToken({ prompt: "consent" });
+    googleSheetsAccessTokenRef.current = accessToken;
     const sheetsClient = createGoogleSheetsClient({ accessToken });
     const spreadsheet = await sheetsClient.createSpreadsheet(
       buildSpreadsheetCreateBody(
@@ -176,7 +190,9 @@ export function App({
       await sheetsClient.batchUpdate(nextSpreadsheetId, schemaRequests);
     }
 
-    handleConnectSpreadsheet(nextSpreadsheetId);
+    setSpreadsheetId(nextSpreadsheetId);
+    cachePreferences({ spreadsheetId: nextSpreadsheetId });
+    await loadSpreadsheetRecordsWithClient(sheetsClient, nextSpreadsheetId);
     return nextSpreadsheetId;
   }
 
@@ -185,12 +201,17 @@ export function App({
       throw new Error("Add a Google OAuth Client ID before checking the online sheet.");
     }
 
-    const tokenClient = createGoogleTokenClient({ clientId: activeGoogleClientId });
+    const tokenClient = createGoogleTokenClient({
+      clientId: activeGoogleClientId,
+      scope: GOOGLE_APP_SCOPES,
+    });
     const accessToken = await tokenClient.requestToken({ prompt: "consent" });
+    googleSheetsAccessTokenRef.current = accessToken;
     const sheetsClient = createGoogleSheetsClient({ accessToken });
     const spreadsheetMetadata = readSpreadsheetMetadata(
       await sheetsClient.getSpreadsheet(targetSpreadsheetId),
     );
+    await loadSpreadsheetRecordsWithClient(sheetsClient, targetSpreadsheetId);
 
     return checkSpreadsheetHealth(
       targetSpreadsheetId,
@@ -238,6 +259,7 @@ export function App({
     }
 
     setSpreadsheetId(restoredPreferences.spreadsheetId);
+    await loadSpreadsheetRecords(restoredPreferences.spreadsheetId);
 
     if (restoredPreferences.selectedMonth) {
       setSelectedMonth(restoredPreferences.selectedMonth);
@@ -267,6 +289,92 @@ export function App({
     return createGoogleDriveAppDataClient({ accessToken });
   }
 
+  async function createSheetsRepository(): Promise<SheetsRepository> {
+    if (!activeGoogleClientId) {
+      throw new Error("Add a Google OAuth Client ID before saving to Google Sheets.");
+    }
+
+    const normalizedSpreadsheetId = normalizeGoogleSpreadsheetId(spreadsheetId);
+
+    if (!normalizedSpreadsheetId) {
+      throw new Error("Connect a real Google Sheet before saving records.");
+    }
+
+    const accessToken = await getGoogleSheetsAccessToken();
+    return new SheetsRepository(
+      normalizedSpreadsheetId,
+      createGoogleSheetsClient({ accessToken }),
+    );
+  }
+
+  async function loadSpreadsheetRecords(targetSpreadsheetId: string): Promise<void> {
+    if (!activeGoogleClientId) {
+      return;
+    }
+
+    const accessToken = await getGoogleSheetsAccessToken();
+    await loadSpreadsheetRecordsWithClient(
+      createGoogleSheetsClient({ accessToken }),
+      targetSpreadsheetId,
+    );
+  }
+
+  async function getGoogleSheetsAccessToken(): Promise<string> {
+    if (googleSheetsAccessTokenRef.current) {
+      return googleSheetsAccessTokenRef.current;
+    }
+
+    if (!activeGoogleClientId) {
+      throw new Error("Add a Google OAuth Client ID before using Google Sheets.");
+    }
+
+    const tokenClient = createGoogleTokenClient({
+      clientId: activeGoogleClientId,
+      scope: GOOGLE_SHEETS_SCOPE,
+    });
+    const accessToken = await tokenClient.requestToken({ prompt: "consent" });
+    googleSheetsAccessTokenRef.current = accessToken;
+    return accessToken;
+  }
+
+  async function loadSpreadsheetRecordsWithClient(
+    sheetsClient: GoogleSheetsAppClient,
+    targetSpreadsheetId: string,
+  ): Promise<void> {
+    const repository = new SheetsRepository(targetSpreadsheetId, sheetsClient);
+    const [
+      nextSalaryConfigs,
+      nextAdvances,
+      nextAdvanceDeductions,
+      nextTimeRecords,
+      nextPublicHolidays,
+    ] = await Promise.all([
+      repository.listSalaryConfigs(),
+      repository.listAdvances(),
+      repository.listAdvanceDeductions(),
+      repository.listTimeRecords(),
+      repository.listPublicHolidays(),
+    ]);
+
+    setSalaryConfigs(nextSalaryConfigs);
+    setAdvances(nextAdvances);
+    setAdvanceDeductions(nextAdvanceDeductions);
+    setTimeRecords(nextTimeRecords);
+    setPublicHolidays(nextPublicHolidays);
+
+    const newestPayCycleStartDay = [...nextSalaryConfigs]
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .find((config) => config.payCycleStartDay)?.payCycleStartDay;
+
+    if (newestPayCycleStartDay) {
+      setPayCycleStartDay(newestPayCycleStartDay);
+      cachePreferences({
+        spreadsheetId: targetSpreadsheetId,
+        payCycleStartDay: newestPayCycleStartDay,
+      });
+    }
+  }
+
   function buildAccountPreferences(
     overrides: CachedAppPreferences = {},
   ): CachedAppPreferences {
@@ -278,82 +386,95 @@ export function App({
     });
   }
 
-  function handleAddSalaryConfig(input: NewSalaryConfigInput) {
+  async function handleAddSalaryConfig(input: NewSalaryConfigInput) {
+    const salaryConfig: SalaryConfig = {
+      ...input,
+      id: `cfg_${crypto.randomUUID()}`,
+      createdAt: new Date().toISOString(),
+    };
+    const repository = await createSheetsRepository();
+
+    await repository.addSalaryConfig(salaryConfig);
     setPayCycleStartDay(input.payCycleStartDay ?? defaultPayCycleStartDay);
     cachePreferences({
       payCycleStartDay: input.payCycleStartDay ?? defaultPayCycleStartDay,
     });
-    setSalaryConfigs((currentConfigs) => [
-      ...currentConfigs,
-      {
-        ...input,
-        id: `cfg_${crypto.randomUUID()}`,
-        createdAt: new Date().toISOString(),
-      },
-    ]);
+    setSalaryConfigs((currentConfigs) => [...currentConfigs, salaryConfig]);
   }
 
-  function handleAddAdvance(payload: NewAdvancePayload) {
+  async function handleAddAdvance(payload: NewAdvancePayload) {
     const advanceId = `adv_${crypto.randomUUID()}`;
     const createdAt = new Date().toISOString();
+    const advance: Advance = {
+      ...payload.advance,
+      id: advanceId,
+      createdAt,
+    };
+    const deductions: AdvanceDeduction[] = payload.deductions.map((deduction) => ({
+      ...deduction,
+      id: `ded_${crypto.randomUUID()}`,
+      advanceId,
+      createdAt,
+    }));
+    const repository = await createSheetsRepository();
 
-    setAdvances((currentAdvances) => [
-      ...currentAdvances,
-      {
-        ...payload.advance,
-        id: advanceId,
-        createdAt,
-      },
-    ]);
+    await repository.addAdvance(advance, deductions);
+    setAdvances((currentAdvances) => [...currentAdvances, advance]);
     setAdvanceDeductions((currentDeductions) => [
       ...currentDeductions,
-      ...payload.deductions.map((deduction) => ({
-        ...deduction,
-        id: `ded_${crypto.randomUUID()}`,
-        advanceId,
-        createdAt,
-      })),
+      ...deductions,
     ]);
   }
 
-  function handleUpdateAdvance(payload: EditAdvancePayload) {
+  async function handleUpdateAdvance(payload: EditAdvancePayload) {
     const createdAt = new Date().toISOString();
+    const existingAdvance = advances.find(
+      (advance) => advance.id === payload.advanceId,
+    );
+    const advance: Advance = {
+      ...existingAdvance,
+      ...payload.advance,
+      id: payload.advanceId,
+      createdAt: existingAdvance?.createdAt ?? createdAt,
+    };
+    const deductions: AdvanceDeduction[] = payload.deductions.map((deduction) => ({
+      ...deduction,
+      id: `ded_${crypto.randomUUID()}`,
+      advanceId: payload.advanceId,
+      createdAt,
+    }));
+    const repository = await createSheetsRepository();
 
+    await repository.updateAdvance(advance, deductions);
     setAdvances((currentAdvances) =>
       currentAdvances.map((advance) =>
-        advance.id === payload.advanceId
-          ? {
-              ...advance,
-              ...payload.advance,
-            }
-          : advance,
+        advance.id === payload.advanceId ? { ...advance, ...payload.advance } : advance,
       ),
     );
     setAdvanceDeductions((currentDeductions) => [
       ...currentDeductions.filter(
         (deduction) => deduction.advanceId !== payload.advanceId,
       ),
-      ...payload.deductions.map((deduction) => ({
-        ...deduction,
-        id: `ded_${crypto.randomUUID()}`,
-        advanceId: payload.advanceId,
-        createdAt,
-      })),
+      ...deductions,
     ]);
   }
 
-  function handleAddTimeRecord(input: NewTimeRecordInput) {
-    setTimeRecords((currentRecords) => [
-      ...currentRecords,
-      {
-        ...input,
-        id: `time_${crypto.randomUUID()}`,
-        createdAt: new Date().toISOString(),
-      },
-    ]);
+  async function handleAddTimeRecord(input: NewTimeRecordInput) {
+    const timeRecord: TimeRecord = {
+      ...input,
+      id: `time_${crypto.randomUUID()}`,
+      createdAt: new Date().toISOString(),
+    };
+    const repository = await createSheetsRepository();
+
+    await repository.addTimeRecord(timeRecord);
+    setTimeRecords((currentRecords) => [...currentRecords, timeRecord]);
   }
 
-  function handleUpdateTimeRecord(record: TimeRecord) {
+  async function handleUpdateTimeRecord(record: TimeRecord) {
+    const repository = await createSheetsRepository();
+
+    await repository.updateTimeRecord(record);
     setTimeRecords((currentRecords) =>
       currentRecords.map((currentRecord) =>
         currentRecord.id === record.id ? record : currentRecord,
@@ -363,13 +484,18 @@ export function App({
 
   async function handleImportPublicHolidays(year: number) {
     const importedHolidays = await fetchSingaporePublicHolidays(year);
+    const repository = await createSheetsRepository();
+
+    await repository.upsertPublicHolidays(importedHolidays);
     setPublicHolidays((currentHolidays) =>
       mergePublicHolidays(currentHolidays, importedHolidays),
     );
     return importedHolidays;
   }
 
-  function handleAddPublicHoliday(input: NewPublicHolidayInput): PublicHoliday {
+  async function handleAddPublicHoliday(
+    input: NewPublicHolidayInput,
+  ): Promise<PublicHoliday> {
     const holiday: PublicHoliday = {
       ...input,
       id: `holiday_${crypto.randomUUID()}`,
@@ -377,14 +503,21 @@ export function App({
       source: "MANUAL",
       createdAt: new Date().toISOString(),
     };
+    const repository = await createSheetsRepository();
 
+    await repository.addPublicHoliday(holiday);
     setPublicHolidays((currentHolidays) =>
       mergePublicHolidays(currentHolidays, [holiday]),
     );
     return holiday;
   }
 
-  function handleUpdatePublicHoliday(holiday: PublicHoliday): PublicHoliday {
+  async function handleUpdatePublicHoliday(
+    holiday: PublicHoliday,
+  ): Promise<PublicHoliday> {
+    const repository = await createSheetsRepository();
+
+    await repository.updatePublicHoliday(holiday);
     setPublicHolidays((currentHolidays) =>
       currentHolidays.map((currentHoliday) =>
         currentHoliday.id === holiday.id ? holiday : currentHoliday,
@@ -393,7 +526,10 @@ export function App({
     return holiday;
   }
 
-  function handleDeletePublicHoliday(holidayId: string) {
+  async function handleDeletePublicHoliday(holidayId: string) {
+    const repository = await createSheetsRepository();
+
+    await repository.deletePublicHoliday(holidayId);
     setPublicHolidays((currentHolidays) =>
       currentHolidays.filter((holiday) => holiday.id !== holidayId),
     );
@@ -532,7 +668,7 @@ function readSpreadsheetMetadata(spreadsheet: unknown): SpreadsheetMetadata {
 }
 
 async function readSpreadsheetMetadataWithHeaders(
-  sheetsClient: GoogleSheetsCreateClient,
+  sheetsClient: GoogleSheetsAppClient,
   spreadsheetId: string,
   metadata: SpreadsheetMetadata,
 ): Promise<SpreadsheetMetadata> {

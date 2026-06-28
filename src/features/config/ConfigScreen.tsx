@@ -142,22 +142,30 @@ function SalaryConfigForm({
       return;
     }
 
-    setError("");
-    await onSubmit({
-      monthlySalary: parseMoneyInput(monthlySalary),
-      effectiveStartDate,
-      otDayDivisor: divisor,
-      payCycleStartDay: cycleStartDay,
-      defaultSundayOffPolicy: "ALL_SUNDAYS",
-      defaultSundayOffCount: undefined,
-      notes: notes.trim(),
-    });
+    try {
+      setError("");
+      await onSubmit({
+        monthlySalary: parseMoneyInput(monthlySalary),
+        effectiveStartDate,
+        otDayDivisor: divisor,
+        payCycleStartDay: cycleStartDay,
+        defaultSundayOffPolicy: "ALL_SUNDAYS",
+        defaultSundayOffCount: undefined,
+        notes: notes.trim(),
+      });
 
-    setMonthlySalary("");
-    setEffectiveStartDate("");
-    setOtDayDivisor("26");
-    setPayCycleStartDay("1");
-    setNotes("");
+      setMonthlySalary("");
+      setEffectiveStartDate("");
+      setOtDayDivisor("26");
+      setPayCycleStartDay("1");
+      setNotes("");
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Failed to save salary plan.",
+      );
+    }
   }
 
   return (

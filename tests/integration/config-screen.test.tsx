@@ -65,6 +65,32 @@ describe("ConfigScreen", () => {
     expect(screen.getByText("Monthly salary is required.")).toBeInTheDocument();
   });
 
+  it("keeps salary form values visible when saving fails", async () => {
+    const onAddSalaryConfig = vi
+      .fn()
+      .mockRejectedValue(new Error("Google Sheets write failed."));
+
+    render(
+      <ConfigScreen
+        selectedMonth="2026-06"
+        salaryConfigs={[]}
+        onAddSalaryConfig={onAddSalaryConfig}
+      />,
+    );
+
+    await userEvent.type(screen.getByLabelText("Monthly salary"), "900");
+    await userEvent.type(screen.getByLabelText("Effective start date"), "2026-06-01");
+    await userEvent.type(screen.getByLabelText("Salary notes"), "June salary");
+    await userEvent.click(screen.getByRole("button", { name: "Save salary plan" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Google Sheets write failed.",
+    );
+    expect(screen.getByLabelText("Monthly salary")).toHaveValue("900");
+    expect(screen.getByLabelText("Effective start date")).toHaveValue("2026-06-01");
+    expect(screen.getByLabelText("Salary notes")).toHaveValue("June salary");
+  });
+
   it("connects sheet setup when spreadsheet handlers are provided", async () => {
     const onConnectSpreadsheet = vi.fn().mockResolvedValue(undefined);
 

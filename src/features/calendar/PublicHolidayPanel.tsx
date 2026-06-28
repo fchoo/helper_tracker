@@ -32,6 +32,9 @@ export function PublicHolidayPanel({
   const [notes, setNotes] = useState("");
   const [editingHolidayId, setEditingHolidayId] = useState("");
   const [error, setError] = useState("");
+  const [isSavingHoliday, setIsSavingHoliday] = useState(false);
+  const [isImportingHolidays, setIsImportingHolidays] = useState(false);
+  const [deletingHolidayId, setDeletingHolidayId] = useState("");
 
   if (localHolidays.sourceHolidays !== holidays) {
     setLocalHolidays({
@@ -55,6 +58,7 @@ export function PublicHolidayPanel({
 
     try {
       setError("");
+      setIsImportingHolidays(true);
       const importedHolidays = await onImportPublicHolidays(selectedYear);
       setVisibleHolidays(mergeHolidays(visibleHolidays, importedHolidays));
     } catch (caughtError) {
@@ -63,6 +67,8 @@ export function PublicHolidayPanel({
           ? caughtError.message
           : "Failed to import public holidays.",
       );
+    } finally {
+      setIsImportingHolidays(false);
     }
   }
 
@@ -85,6 +91,7 @@ export function PublicHolidayPanel({
 
     try {
       setError("");
+      setIsSavingHoliday(true);
       const input = {
         name: name.trim(),
         date,
@@ -106,18 +113,35 @@ export function PublicHolidayPanel({
           ? caughtError.message
           : "Failed to save public holiday.",
       );
+    } finally {
+      setIsSavingHoliday(false);
     }
   }
 
   async function handleDelete(holidayId: string) {
-    if (onDeletePublicHoliday) {
-      await onDeletePublicHoliday(holidayId);
-    }
+    try {
+      setError("");
+      setDeletingHolidayId(holidayId);
 
-    setVisibleHolidays(visibleHolidays.filter((holiday) => holiday.id !== holidayId));
+      if (onDeletePublicHoliday) {
+        await onDeletePublicHoliday(holidayId);
+      }
 
-    if (editingHolidayId === holidayId) {
-      resetForm();
+      setVisibleHolidays(
+        visibleHolidays.filter((holiday) => holiday.id !== holidayId),
+      );
+
+      if (editingHolidayId === holidayId) {
+        resetForm();
+      }
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Failed to delete public holiday.",
+      );
+    } finally {
+      setDeletingHolidayId("");
     }
   }
 
@@ -154,15 +178,25 @@ export function PublicHolidayPanel({
           <p>Expected work days by default; add extra pay only from Time & Calendar.</p>
         </div>
         {onImportPublicHolidays ? (
-          <button type="button" onClick={handleImport}>
-            Import {selectedYear} holidays
+          <button
+            type="button"
+            onClick={handleImport}
+            disabled={isImportingHolidays}
+          >
+            {isImportingHolidays
+              ? `Importing ${selectedYear}...`
+              : `Import ${selectedYear} holidays`}
           </button>
         ) : null}
       </div>
       <form className="stack-form" onSubmit={handleAdd}>
         <label>
           Holiday name
-          <input value={name} onChange={(event) => setName(event.target.value)} />
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            disabled={isSavingHoliday}
+          />
         </label>
         <label>
           Holiday date
@@ -170,16 +204,25 @@ export function PublicHolidayPanel({
             type="date"
             value={date}
             onChange={(event) => setDate(event.target.value)}
+            disabled={isSavingHoliday}
           />
         </label>
         <label>
           Holiday notes
-          <textarea value={notes} onChange={(event) => setNotes(event.target.value)} />
+          <textarea
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            disabled={isSavingHoliday}
+          />
         </label>
         {error ? <p role="alert">{error}</p> : null}
         {onAddPublicHoliday || editingHoliday ? (
-          <button type="submit">
-            {editingHoliday ? "Save public holiday" : "Add public holiday"}
+          <button type="submit" disabled={isSavingHoliday}>
+            {isSavingHoliday
+              ? "Saving public holiday..."
+              : editingHoliday
+                ? "Save public holiday"
+                : "Add public holiday"}
           </button>
         ) : null}
       </form>
@@ -195,6 +238,7 @@ export function PublicHolidayPanel({
                 className="secondary-button"
                 onClick={() => handleEdit(holiday)}
                 aria-label={`Edit ${holiday.name}`}
+                disabled={Boolean(deletingHolidayId)}
               >
                 Edit
               </button>
@@ -203,8 +247,9 @@ export function PublicHolidayPanel({
                 className="secondary-button"
                 onClick={() => void handleDelete(holiday.id)}
                 aria-label={`Delete ${holiday.name}`}
+                disabled={Boolean(deletingHolidayId)}
               >
-                Delete
+                {deletingHolidayId === holiday.id ? "Deleting..." : "Delete"}
               </button>
             </li>
           ))}

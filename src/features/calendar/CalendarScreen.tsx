@@ -284,15 +284,21 @@ function TimeRecordForm({
       return;
     }
 
-    setError("");
-    setStatus("");
-    await onSubmit(nextRecord);
+    try {
+      setError("");
+      setStatus("");
+      await onSubmit(nextRecord);
 
-    if (mode === "add") {
-      setStartDate("");
-      setEndDate("");
-      setAction("WORKED");
-      setNotes("");
+      if (mode === "add") {
+        setStartDate("");
+        setEndDate("");
+        setAction("WORKED");
+        setNotes("");
+      }
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error ? caughtError.message : "Failed to save day.",
+      );
     }
   }
 
