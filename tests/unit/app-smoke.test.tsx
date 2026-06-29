@@ -198,7 +198,7 @@ describe("App", () => {
         scope: GOOGLE_SHEETS_SCOPE,
       }),
     );
-    expect(requestToken).toHaveBeenCalledWith({ prompt: "consent" });
+    expect(requestToken).toHaveBeenCalledWith({ prompt: "" });
     expect(createGoogleSheetsClient).toHaveBeenCalledWith({
       accessToken: "token_123",
     });
@@ -238,32 +238,40 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
-  it("loads a cached connected Google Sheet in the background", async () => {
+  it("loads cached connected sheet records without starting OAuth on page load", async () => {
     localStorage.setItem(
       "helper-tracker:preferences",
       JSON.stringify({
         spreadsheetId: "sheet_online",
       }),
     );
+    localStorage.setItem(
+      "helper-tracker:sheet-records",
+      JSON.stringify({
+        sheet_online: {
+          salaryConfigs: [
+            {
+              id: "cfg_loaded",
+              monthlySalary: 950,
+              effectiveStartDate: "2026-08-01",
+              otDayDivisor: 26,
+              payCycleStartDay: 15,
+              defaultSundayOffPolicy: "ALL_SUNDAYS",
+              notes: "Loaded salary",
+              createdAt: "2026-06-28T12:00:00.000Z",
+            },
+          ],
+          advances: [],
+          advanceDeductions: [],
+          timeRecords: [],
+          publicHolidays: [],
+        },
+      }),
+    );
     const user = userEvent.setup();
-    const requestToken = vi.fn().mockResolvedValue("token_123");
+    const requestToken = vi.fn();
     const createGoogleTokenClient = vi.fn().mockReturnValue({ requestToken });
-    const sheetsClient = createMockGoogleSheetsClient({
-      "Config!A:I": [
-        requiredHeaderRows.Config,
-        [
-          "cfg_loaded",
-          "950",
-          "2026-08-01",
-          "26",
-          "15",
-          "ALL_SUNDAYS",
-          "",
-          "Loaded salary",
-          "2026-06-28T12:00:00.000Z",
-        ],
-      ],
-    });
+    const sheetsClient = createMockGoogleSheetsClient();
     const createGoogleSheetsClient = vi.fn().mockReturnValue(sheetsClient);
 
     render(
@@ -277,9 +285,10 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Config" }));
     await user.click(screen.getByRole("button", { name: "Salary plan" }));
 
-    expect(requestToken).toHaveBeenCalledWith({ prompt: "" });
-    expect(sheetsClient.getValues).toHaveBeenCalledWith("sheet_online", "Config!A:I");
     expect(await screen.findByText("Loaded salary")).toBeInTheDocument();
+    expect(createGoogleTokenClient).not.toHaveBeenCalled();
+    expect(requestToken).not.toHaveBeenCalled();
+    expect(sheetsClient.getValues).not.toHaveBeenCalled();
   });
 
   it("selects a Google Sheet from Drive and stores the connection locally", async () => {
@@ -420,7 +429,7 @@ describe("App", () => {
     expect(createGoogleTokenClient).not.toHaveBeenCalled();
   });
 
-  it("loads connected sheet records into every page after background sync", async () => {
+  it("syncs connected sheet records into every page from the config action", async () => {
     localStorage.setItem(
       "helper-tracker:preferences",
       JSON.stringify({
@@ -504,8 +513,13 @@ describe("App", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Config" }));
+    await user.click(screen.getByRole("button", { name: "Sync from sheet" }));
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Google Sheet synced.",
+    );
     await user.click(screen.getByRole("button", { name: "Salary plan" }));
 
+    expect(requestToken).toHaveBeenCalledWith({ prompt: "" });
     expect(await screen.findByText("Loaded plan")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Advances" }));
@@ -647,7 +661,7 @@ describe("App", () => {
     );
   });
 
-  it("keeps last synced records visible if silent Google Sheet reload cannot start", async () => {
+  it("tries silent Google Sheets auth before opening consent for a user save", async () => {
     localStorage.setItem(
       "helper-tracker:preferences",
       JSON.stringify({
@@ -658,8 +672,61 @@ describe("App", () => {
     const user = userEvent.setup();
     const requestToken = vi
       .fn()
-      .mockResolvedValueOnce("token_123")
-      .mockRejectedValue(new Error("Google sign-in could not finish. Try again."));
+      .mockRejectedValueOnce(new Error("Google sign-in could not finish. Try again."))
+      .mockResolvedValueOnce("token_123");
+    const createGoogleTokenClient = vi.fn().mockReturnValue({ requestToken });
+    const sheetsClient = createMockGoogleSheetsClient();
+    const createGoogleSheetsClient = vi.fn().mockReturnValue(sheetsClient);
+
+    render(
+      <App
+        googleClientId="1234567890-valid.apps.googleusercontent.com"
+        createGoogleTokenClient={createGoogleTokenClient}
+        createGoogleSheetsClient={createGoogleSheetsClient}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Config" }));
+    await user.click(screen.getByRole("button", { name: "Salary plan" }));
+    await user.click(screen.getByRole("button", { name: "Add salary plan" }));
+    const dialog = screen.getByRole("dialog", { name: "Add salary plan" });
+    await user.type(within(dialog).getByLabelText("Monthly salary"), "900");
+    await user.type(
+      within(dialog).getByLabelText("Effective start date"),
+      "2026-08-01",
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Add salary plan" }),
+    );
+
+    expect(requestToken).toHaveBeenNthCalledWith(1, { prompt: "" });
+    expect(requestToken).toHaveBeenNthCalledWith(2, { prompt: "consent" });
+    expect(createGoogleSheetsClient).toHaveBeenLastCalledWith({
+      accessToken: "token_123",
+    });
+    expect(sheetsClient.appendValues).toHaveBeenCalledWith(
+      "sheet_online",
+      "Config!A:I",
+      [
+        expect.arrayContaining([
+          expect.stringMatching(/^cfg_/),
+          900,
+          "2026-08-01",
+        ]),
+      ],
+    );
+  });
+
+  it("keeps last synced records visible after reload without starting OAuth", async () => {
+    localStorage.setItem(
+      "helper-tracker:preferences",
+      JSON.stringify({
+        spreadsheetId: "sheet_online",
+        selectedMonth: "2026-08",
+      }),
+    );
+    const user = userEvent.setup();
+    const requestToken = vi.fn().mockResolvedValueOnce("token_123");
     const createGoogleTokenClient = vi.fn().mockReturnValue({ requestToken });
     const sheetsClient = createMockGoogleSheetsClient();
     const createGoogleSheetsClient = vi.fn().mockReturnValue(sheetsClient);
@@ -701,10 +768,11 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Salary plan" }));
 
     expect(await screen.findByText("Refresh salary")).toBeInTheDocument();
-    expect(requestToken).toHaveBeenLastCalledWith({ prompt: "" });
+    expect(createGoogleTokenClient).not.toHaveBeenCalled();
+    expect(requestToken).toHaveBeenCalledTimes(1);
   });
 
-  it("reloads connected sheet records from Google Sheets after a browser refresh", async () => {
+  it("syncs connected sheet records from Google Sheets after a browser refresh", async () => {
     localStorage.setItem(
       "helper-tracker:preferences",
       JSON.stringify({
@@ -763,6 +831,13 @@ describe("App", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Config" }));
     await userEvent.click(screen.getByRole("button", { name: "Salary plan" }));
+    expect(screen.getByText("Stale cached salary")).toBeInTheDocument();
+    expect(requestToken).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Google Sheet" }));
+    await userEvent.click(screen.getByRole("button", { name: "Sync from sheet" }));
+    await userEvent.click(screen.getByRole("button", { name: "Salary plan" }));
+
     expect(await screen.findByText("Fresh sheet salary")).toBeInTheDocument();
     expect(screen.queryByText("Stale cached salary")).not.toBeInTheDocument();
     expect(requestToken).toHaveBeenCalledWith({ prompt: "" });

@@ -23,6 +23,7 @@ export type ConfigScreenProps = {
   onPickDriveSpreadsheet?: () =>
     | Promise<GooglePickerSpreadsheet>
     | GooglePickerSpreadsheet;
+  onSyncSpreadsheet?: () => Promise<void> | void;
   onImportPublicHolidays?: (year: number) => Promise<PublicHoliday[]>;
   onAddPublicHoliday?: (
     holiday: NewPublicHolidayInput,
@@ -45,6 +46,7 @@ export function ConfigScreen({
   onConnectSpreadsheet,
   onCreateSpreadsheet,
   onPickDriveSpreadsheet,
+  onSyncSpreadsheet,
   onImportPublicHolidays,
   onAddPublicHoliday,
   onUpdatePublicHoliday,
@@ -93,6 +95,7 @@ export function ConfigScreen({
           onConnect={onConnectSpreadsheet}
           onCreate={onCreateSpreadsheet}
           onPickDriveSpreadsheet={onPickDriveSpreadsheet}
+          onSync={onSyncSpreadsheet}
         />
       ) : null}
       {activeConfigSection === "salary" ? (

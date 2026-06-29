@@ -12,6 +12,7 @@ export type SpreadsheetSetupProps = {
   onPickDriveSpreadsheet?: () =>
     | Promise<GooglePickerSpreadsheet>
     | GooglePickerSpreadsheet;
+  onSync?: () => Promise<void> | void;
 };
 
 export function SpreadsheetSetup({
@@ -22,11 +23,13 @@ export function SpreadsheetSetup({
   onConnect,
   onCreate,
   onPickDriveSpreadsheet,
+  onSync,
 }: SpreadsheetSetupProps) {
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [isLoadingDriveSheets, setIsLoadingDriveSheets] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const canUseGoogleSheets = isGoogleOAuthConfigured ?? true;
   const connectedSpreadsheetId = normalizeGoogleSpreadsheetId(spreadsheetId);
   const connectedSpreadsheetName =
@@ -65,6 +68,42 @@ export function SpreadsheetSetup({
       );
     } finally {
       setIsLoadingDriveSheets(false);
+    }
+  }
+
+  async function handleSync() {
+    setError("");
+    setStatus("");
+
+    if (!canUseGoogleSheets) {
+      setError("Google Sheets is not configured for this deployment.");
+      return;
+    }
+
+    if (!connectedSpreadsheetId) {
+      setError("Connect a Google Sheet before syncing records.");
+      return;
+    }
+
+    if (!onSync) {
+      setError("Google Sheet sync is not available.");
+      return;
+    }
+
+    try {
+      setIsSyncing(true);
+      setStatus("Syncing workbook...");
+      await onSync();
+      setStatus("Google Sheet synced.");
+    } catch (syncError) {
+      setStatus("");
+      setError(
+        syncError instanceof Error
+          ? syncError.message
+          : "Could not sync Google Sheet.",
+      );
+    } finally {
+      setIsSyncing(false);
     }
   }
 
@@ -109,7 +148,9 @@ export function SpreadsheetSetup({
             type="button"
             className="secondary-button"
             onClick={handlePickDriveSpreadsheet}
-            disabled={isLoadingDriveSheets || isCreating || !canUseGoogleSheets}
+            disabled={
+              isLoadingDriveSheets || isCreating || isSyncing || !canUseGoogleSheets
+            }
           >
             {isLoadingDriveSheets ? "Opening..." : "Choose from Drive"}
           </button>
@@ -117,9 +158,25 @@ export function SpreadsheetSetup({
             type="button"
             className="secondary-button"
             onClick={handleCreate}
-            disabled={isCreating || isLoadingDriveSheets || !canUseGoogleSheets}
+            disabled={
+              isCreating || isLoadingDriveSheets || isSyncing || !canUseGoogleSheets
+            }
           >
             {isCreating ? "Creating..." : "Create new sheet"}
+          </button>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={handleSync}
+            disabled={
+              isSyncing ||
+              isCreating ||
+              isLoadingDriveSheets ||
+              !canUseGoogleSheets ||
+              !connectedSpreadsheetId
+            }
+          >
+            {isSyncing ? "Syncing..." : "Sync from sheet"}
           </button>
         </div>
       </div>

@@ -72,6 +72,9 @@ type GoogleSheetsAppClient = Pick<
   | "getValues"
   | "updateValues"
 >;
+
+type GoogleAccessTokenPrompt = "" | "consent";
+
 function createDefaultGoogleSheetsClient(options: {
   accessToken: string;
 }): GoogleSheetsAppClient {
@@ -154,11 +157,13 @@ export function App({
   useEffect(() => {
     const targetSpreadsheetId = normalizeGoogleSpreadsheetId(spreadsheetId);
 
-    if (!targetSpreadsheetId || !activeGoogleClientId) {
+    const currentAccessToken = googleSheetsAccessTokenRef.current;
+
+    if (!targetSpreadsheetId || !currentAccessToken) {
       return undefined;
     }
 
-    const autoLoadKey = `${activeGoogleClientId}:${targetSpreadsheetId}`;
+    const autoLoadKey = targetSpreadsheetId;
 
     if (autoLoadedSpreadsheetKeyRef.current === autoLoadKey) {
       return undefined;
@@ -167,25 +172,18 @@ export function App({
     autoLoadedSpreadsheetKeyRef.current = autoLoadKey;
 
     let isCancelled = false;
-    let retryCount = 0;
-    let retryTimeoutId: number | undefined;
-    const googleClientIdForLoad = activeGoogleClientId;
     const spreadsheetIdForLoad = targetSpreadsheetId;
+    const accessTokenForLoad = currentAccessToken;
 
     async function loadFromGoogleSheet() {
       try {
-        const tokenClient = createGoogleTokenClient({
-          clientId: googleClientIdForLoad,
-          scope: GOOGLE_SHEETS_SCOPE,
-        });
-        const accessToken = await tokenClient.requestToken({ prompt: "" });
-
         if (isCancelled) {
           return;
         }
 
-        googleSheetsAccessTokenRef.current = accessToken;
-        const sheetsClient = createGoogleSheetsClient({ accessToken });
+        const sheetsClient = createGoogleSheetsClient({
+          accessToken: accessTokenForLoad,
+        });
         const repository = new SheetsRepository(spreadsheetIdForLoad, sheetsClient);
         const [
           nextSalaryConfigs,
@@ -212,14 +210,8 @@ export function App({
           timeRecords: nextTimeRecords,
           publicHolidays: nextPublicHolidays,
         });
-      } catch (caughtError) {
+      } catch {
         if (isCancelled) {
-          return;
-        }
-
-        if (isGoogleIdentityLoadingError(caughtError) && retryCount < 20) {
-          retryCount += 1;
-          retryTimeoutId = window.setTimeout(loadFromGoogleSheet, 500);
           return;
         }
 
@@ -231,17 +223,8 @@ export function App({
 
     return () => {
       isCancelled = true;
-
-      if (retryTimeoutId) {
-        window.clearTimeout(retryTimeoutId);
-      }
     };
-  }, [
-    activeGoogleClientId,
-    createGoogleSheetsClient,
-    createGoogleTokenClient,
-    spreadsheetId,
-  ]);
+  }, [createGoogleSheetsClient, spreadsheetId]);
 
   function buildCurrentPreferences(
     overrides: CachedAppPreferences = {},
@@ -324,7 +307,7 @@ export function App({
       throw new Error("Add a Google OAuth Client ID before verifying the online sheet.");
     }
 
-    const accessToken = await getFreshGoogleSheetsAccessToken("consent");
+    const accessToken = await getGoogleSheetsAccessTokenWithConsentFallback();
     const sheetsClient = createGoogleSheetsClient({ accessToken });
     await verifySpreadsheetSchemaAndLoad(sheetsClient, normalizedSpreadsheetId);
     setSpreadsheetId(normalizedSpreadsheetId);
@@ -343,12 +326,7 @@ export function App({
       throw new Error("Add a Google OAuth Client ID before creating an online Google Sheet.");
     }
 
-    const tokenClient = createGoogleTokenClient({
-      clientId: activeGoogleClientId,
-      scope: GOOGLE_SHEETS_SCOPE,
-    });
-    const accessToken = await tokenClient.requestToken({ prompt: "consent" });
-    googleSheetsAccessTokenRef.current = accessToken;
+    const accessToken = await getGoogleSheetsAccessTokenWithConsentFallback();
     const sheetTitle = `Domestic Helper Tracker ${new Date().toISOString().slice(0, 10)}`;
     const sheetsClient = createGoogleSheetsClient({ accessToken });
     const spreadsheet = await sheetsClient.createSpreadsheet(
@@ -391,17 +369,31 @@ export function App({
       throw new Error("Add a Google Picker API key before choosing from Google Drive.");
     }
 
-    const tokenClient = createGoogleTokenClient({
-      clientId: activeGoogleClientId,
-      scope: GOOGLE_DRIVE_METADATA_SCOPE,
-    });
-    const accessToken = await tokenClient.requestToken({ prompt: "consent" });
+    const accessToken = await getGoogleAccessTokenWithConsentFallback(
+      GOOGLE_DRIVE_METADATA_SCOPE,
+    );
     const pickedSpreadsheet = await pickGoogleSpreadsheetFromDrive({
       accessToken,
       appId: googlePickerAppId,
       developerKey: googlePickerDeveloperKey,
     });
     return pickedSpreadsheet;
+  }
+
+  async function handleSyncSpreadsheet(): Promise<void> {
+    if (!activeGoogleClientId) {
+      throw new Error("Add a Google OAuth Client ID before syncing Google Sheets.");
+    }
+
+    const normalizedSpreadsheetId = normalizeGoogleSpreadsheetId(spreadsheetId);
+
+    if (!normalizedSpreadsheetId) {
+      throw new Error("Connect a real Google Sheet before syncing records.");
+    }
+
+    const accessToken = await getGoogleSheetsAccessTokenWithConsentFallback();
+    const sheetsClient = createGoogleSheetsClient({ accessToken });
+    await verifySpreadsheetSchemaAndLoad(sheetsClient, normalizedSpreadsheetId);
   }
 
   async function createSheetsRepository(): Promise<SheetsRepository> {
@@ -431,17 +423,34 @@ export function App({
       throw new Error("Add a Google OAuth Client ID before using Google Sheets.");
     }
 
-    const tokenClient = createGoogleTokenClient({
-      clientId: activeGoogleClientId,
-      scope: GOOGLE_SHEETS_SCOPE,
-    });
-    const accessToken = await tokenClient.requestToken({ prompt: "consent" });
+    return getGoogleSheetsAccessTokenWithConsentFallback();
+  }
+
+  async function getGoogleSheetsAccessTokenWithConsentFallback(): Promise<string> {
+    const accessToken = await getGoogleAccessTokenWithConsentFallback(
+      GOOGLE_SHEETS_SCOPE,
+    );
     googleSheetsAccessTokenRef.current = accessToken;
     return accessToken;
   }
 
-  async function getFreshGoogleSheetsAccessToken(
-    prompt: "" | "consent",
+  async function getGoogleAccessTokenWithConsentFallback(
+    scope: string,
+  ): Promise<string> {
+    try {
+      return await requestGoogleAccessToken(scope, "");
+    } catch (caughtError) {
+      if (isGoogleIdentityLoadingError(caughtError)) {
+        throw caughtError;
+      }
+
+      return requestGoogleAccessToken(scope, "consent");
+    }
+  }
+
+  async function requestGoogleAccessToken(
+    scope: string,
+    prompt: GoogleAccessTokenPrompt,
   ): Promise<string> {
     if (!activeGoogleClientId) {
       throw new Error("Add a Google OAuth Client ID before using Google Sheets.");
@@ -449,11 +458,9 @@ export function App({
 
     const tokenClient = createGoogleTokenClient({
       clientId: activeGoogleClientId,
-      scope: GOOGLE_SHEETS_SCOPE,
+      scope,
     });
-    const accessToken = await tokenClient.requestToken({ prompt });
-    googleSheetsAccessTokenRef.current = accessToken;
-    return accessToken;
+    return tokenClient.requestToken({ prompt });
   }
 
   async function verifySpreadsheetSchemaAndLoad(
@@ -787,6 +794,7 @@ export function App({
           onConnectSpreadsheet={handleConnectSpreadsheet}
           onCreateSpreadsheet={handleCreateSpreadsheet}
           onPickDriveSpreadsheet={handlePickDriveSpreadsheet}
+          onSyncSpreadsheet={handleSyncSpreadsheet}
           onImportPublicHolidays={handleImportPublicHolidays}
           onAddPublicHoliday={handleAddPublicHoliday}
           onUpdatePublicHoliday={handleUpdatePublicHoliday}
