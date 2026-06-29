@@ -20,6 +20,7 @@ export type GooglePickerClientOptions = GooglePickerConfig & {
   gapi?: GoogleApiLoader;
   googlePicker?: GooglePickerNamespace;
   document?: Document;
+  origin?: string;
 };
 
 type GoogleApiLoader = {
@@ -48,6 +49,7 @@ type Picker = {
 type PickerBuilder = {
   setDeveloperKey: (developerKey: string) => PickerBuilder;
   setAppId?: (appId: string) => PickerBuilder;
+  setOrigin: (origin: string) => PickerBuilder;
   setOAuthToken: (accessToken: string) => PickerBuilder;
   addView: (view: PickerView) => PickerBuilder;
   setCallback: (callback: (response: PickerResponse) => void) => PickerBuilder;
@@ -85,6 +87,7 @@ export async function pickGoogleSpreadsheet({
   gapi = window.gapi,
   googlePicker = getWindowGooglePicker(),
   document: documentObject = window.document,
+  origin = window.location.origin,
 }: GooglePickerClientOptions): Promise<GooglePickerSpreadsheet> {
   if (!accessToken) {
     throw new Error("Google Picker access token is required.");
@@ -105,6 +108,7 @@ export async function pickGoogleSpreadsheet({
     accessToken,
     appId,
     developerKey,
+    origin,
     pickerNamespace,
   });
 }
@@ -171,11 +175,13 @@ function openSpreadsheetPicker({
   accessToken,
   appId,
   developerKey,
+  origin,
   pickerNamespace,
 }: {
   accessToken: string;
   appId?: string;
   developerKey: string;
+  origin: string;
   pickerNamespace: GooglePickerNamespace;
 }): Promise<GooglePickerSpreadsheet> {
   return new Promise((resolve, reject) => {
@@ -186,6 +192,7 @@ function openSpreadsheetPicker({
 
     let builder = new pickerNamespace.PickerBuilder()
       .setDeveloperKey(developerKey)
+      .setOrigin(origin)
       .setOAuthToken(accessToken)
       .addView(view)
       .setCallback((response) => {

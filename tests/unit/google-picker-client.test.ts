@@ -12,6 +12,7 @@ describe("pickGoogleSpreadsheet", () => {
     const setMimeTypes = vi.fn().mockReturnThis();
     const setDeveloperKey = vi.fn().mockReturnThis();
     const setAppId = vi.fn().mockReturnThis();
+    const setOrigin = vi.fn().mockReturnThis();
     const setOAuthToken = vi.fn().mockReturnThis();
     const addView = vi.fn().mockReturnThis();
     const setCallback = vi.fn((callback) => {
@@ -42,11 +43,13 @@ describe("pickGoogleSpreadsheet", () => {
       setAppId,
       setCallback,
       setDeveloperKey,
+      setOrigin,
       setOAuthToken,
     };
     class TestPickerBuilder {
       setDeveloperKey = setDeveloperKey;
       setAppId = setAppId;
+      setOrigin = setOrigin;
       setOAuthToken = setOAuthToken;
       addView = addView;
       setCallback = setCallback;
@@ -82,6 +85,7 @@ describe("pickGoogleSpreadsheet", () => {
       gapi,
       googlePicker,
       document,
+      origin: "https://fchoo.github.io",
     });
 
     await expect(pickPromise).resolves.toEqual({
@@ -93,6 +97,7 @@ describe("pickGoogleSpreadsheet", () => {
     expect(setMimeTypes).toHaveBeenCalledWith(GOOGLE_PICKER_SPREADSHEET_MIME_TYPE);
     expect(setDeveloperKey).toHaveBeenCalledWith("picker_key");
     expect(setAppId).toHaveBeenCalledWith("404849934745");
+    expect(setOrigin).toHaveBeenCalledWith("https://fchoo.github.io");
     expect(setOAuthToken).toHaveBeenCalledWith("token_123");
     expect(addView).toHaveBeenCalledTimes(1);
     expect(setVisible).toHaveBeenCalledWith(true);

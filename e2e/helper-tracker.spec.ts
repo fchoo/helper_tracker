@@ -29,6 +29,10 @@ test.beforeEach(async ({ page }) => {
               PickerBuilder: function PickerBuilder() {
                 this.setDeveloperKey = () => this;
                 this.setAppId = () => this;
+                this.setOrigin = (origin) => {
+                  window.__pickerOrigin = origin;
+                  return this;
+                };
                 this.setOAuthToken = () => this;
                 this.addView = () => this;
                 this.setCallback = (callback) => {
@@ -110,6 +114,9 @@ test("tracks a monthly helper payout from setup through salary review", async ({
   await expect
     .poll(() => page.evaluate(() => window.__pickerMimeTypes))
     .toBe("application/vnd.google-apps.spreadsheet");
+  await expect
+    .poll(() => page.evaluate(() => window.__pickerOrigin))
+    .toBe("http://127.0.0.1:4173");
   await page.getByRole("button", { name: "Run health check" }).click();
   await expect(page.getByText("Schema healthy")).toBeVisible();
 
