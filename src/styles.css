@@ -309,8 +309,15 @@ small {
   color: var(--text);
 }
 
-.screen-header p {
+.screen-header p,
+.panel-header p {
   margin-top: var(--space-1);
+}
+
+.panel-header p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 700;
 }
 
 .stack-form,
@@ -520,16 +527,16 @@ small {
 .config-subnav {
   display: flex;
   flex: 1 1 280px;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 6px;
   min-width: 0;
-  overflow-x: auto;
+  max-width: 100%;
   border-bottom: 1px solid var(--border);
   padding-bottom: var(--space-2);
 }
 
 .config-subnav button {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   min-height: 36px;
   border-color: transparent;
   background: transparent;
@@ -730,6 +737,15 @@ small {
   min-width: 180px;
 }
 
+.panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: end;
+  justify-content: flex-end;
+  justify-self: end;
+}
+
 [role="alert"] {
   border-radius: var(--radius);
   background: var(--accent-soft);
@@ -768,6 +784,14 @@ small {
 .record-list li span {
   color: var(--text-muted);
   font-size: 0.9rem;
+}
+
+.advance-history-primary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  align-items: baseline;
+  min-width: 0;
 }
 
 .record-list button {
@@ -1364,6 +1388,27 @@ small {
   .primary-nav button {
     font-size: 0.68rem;
     padding: 6px 2px;
+  }
+
+  .config-page-toolbar {
+    align-items: stretch;
+  }
+
+  .config-subnav {
+    flex-basis: 100%;
+  }
+
+  .config-subnav button {
+    flex: 1 1 132px;
+  }
+
+  .panel-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .panel-actions .compact-filter {
+    flex: 1 1 100%;
   }
 
   .schedule-row {

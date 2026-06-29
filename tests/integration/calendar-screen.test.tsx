@@ -163,11 +163,14 @@ describe("CalendarScreen", () => {
   });
 
   it("shows weekday headers above the pay cycle calendar", () => {
-    render(
+    const { container } = render(
       <CalendarScreen selectedMonth="2026-08" publicHolidays={[]} timeRecords={[]} />,
     );
 
-    expect(screen.getByText("Mon")).toBeInTheDocument();
-    expect(screen.getByText("Sun")).toBeInTheDocument();
+    expect(
+      Array.from(container.querySelectorAll(".weekday-header span")).map(
+        (label) => label.textContent,
+      ),
+    ).toEqual(["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]);
   });
 });

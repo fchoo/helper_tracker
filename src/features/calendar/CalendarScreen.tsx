@@ -33,7 +33,7 @@ type TimeDialogState =
   | { mode: "edit"; record: TimeRecord }
   | null;
 
-const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export function CalendarScreen({
   selectedMonth,
@@ -75,26 +75,15 @@ export function CalendarScreen({
 
   return (
     <section aria-labelledby="calendar-title" className="screen">
-      <header className="screen-header">
-        <div>
-          <h2 id="calendar-title">Time & Calendar</h2>
-          <p>Pay month {selectedMonth}</p>
-          {payCycleRange ? (
-            <p>
-              Pay cycle {payCycleRange.startDate} to {payCycleRange.endDate}
-            </p>
-          ) : null}
-        </div>
-        {onAddTimeRecord ? (
-          <button
-            type="button"
-            className="mobile-floating-action"
-            onClick={() => setTimeDialog({ mode: "add" })}
-          >
-            Add time
-          </button>
-        ) : null}
-      </header>
+      <h2 id="calendar-title" className="visually-hidden">
+        Time & Calendar
+      </h2>
+      <span className="visually-hidden">Pay month {selectedMonth}</span>
+      {payCycleRange ? (
+        <span className="visually-hidden">
+          Pay cycle {payCycleRange.startDate} to {payCycleRange.endDate}
+        </span>
+      ) : null}
       <section className="summary-grid" aria-label="Pay cycle time summary">
         <SummaryItem label="Worked Sundays" value={String(counts.sundayOtDays)} />
         <SummaryItem
@@ -118,6 +107,9 @@ export function CalendarScreen({
           <TimeRecordList
             payCycleRange={payCycleRange}
             timeRecords={timeRecords}
+            onAddTimeRecord={
+              onAddTimeRecord ? () => setTimeDialog({ mode: "add" }) : undefined
+            }
             onEditTimeRecord={onUpdateTimeRecord ? openEditDialog : undefined}
           />
         </section>
@@ -422,10 +414,12 @@ function TimeRecordForm({
 function TimeRecordList({
   payCycleRange,
   timeRecords,
+  onAddTimeRecord,
   onEditTimeRecord,
 }: {
   payCycleRange: DateRange | null;
   timeRecords: TimeRecord[];
+  onAddTimeRecord?: () => void;
   onEditTimeRecord?: (record: TimeRecord) => void;
 }) {
   const visibleRecords = timeRecords.filter((record) =>
@@ -436,6 +430,15 @@ function TimeRecordList({
     <>
       <div className="panel-header">
         <h3 id="time-record-list-title">Time records</h3>
+        {onAddTimeRecord ? (
+          <button
+            type="button"
+            className="mobile-floating-action"
+            onClick={onAddTimeRecord}
+          >
+            Add time
+          </button>
+        ) : null}
       </div>
       {visibleRecords.length ? (
         <ul className="record-list scroll-list">
@@ -517,7 +520,7 @@ function buildCalendarDays(range: DateRange | null): string[] {
 
 function getWeekdayColumn(date: string): number {
   const day = new Date(`${date}T00:00:00.000Z`).getUTCDay();
-  return day === 0 ? 7 : day;
+  return day + 1;
 }
 
 function isDateInRange(date: string, range: DateRange): boolean {

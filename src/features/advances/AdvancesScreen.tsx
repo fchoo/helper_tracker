@@ -61,25 +61,17 @@ export function AdvancesScreen({
 
   return (
     <section aria-labelledby="advances-title" className="screen">
-      <header className="screen-header">
-        <div>
-          <h2 id="advances-title">Advances</h2>
-          <p>Deducted in pay month {selectedMonth}: {formatSgd(selectedMonthTotal)}</p>
-        </div>
-        <button
-          type="button"
-          className="mobile-floating-action"
-          onClick={openAddDialog}
-        >
-          Add advance
-        </button>
-      </header>
+      <h2 id="advances-title" className="visually-hidden">
+        Advances
+      </h2>
       <AdvanceHistory
         advances={advances}
         deductions={deductions}
         selectedMonth={selectedMonth}
+        selectedMonthTotal={selectedMonthTotal}
         filter={filter}
         onFilterChange={setFilter}
+        onAddAdvance={openAddDialog}
         onEditAdvance={openEditDialog}
       />
       {isDialogOpen ? (
@@ -405,15 +397,19 @@ function AdvanceHistory({
   advances,
   deductions,
   selectedMonth,
+  selectedMonthTotal,
   filter,
   onFilterChange,
+  onAddAdvance,
   onEditAdvance,
 }: {
   advances: Advance[];
   deductions: AdvanceDeduction[];
   selectedMonth: string;
+  selectedMonthTotal: number;
   filter: string;
   onFilterChange: (filter: string) => void;
+  onAddAdvance: () => void;
   onEditAdvance: (advanceId: string) => void;
 }) {
   const sortedAdvances = [...advances].sort((a, b) => b.date.localeCompare(a.date));
@@ -434,17 +430,29 @@ function AdvanceHistory({
       className="panel-section history-panel"
     >
       <div className="panel-header">
-        <h3 id="advance-history-title">Advance history</h3>
-        <label className="compact-filter">
-          Filter
-          <select
-            value={filter}
-            onChange={(event) => onFilterChange(event.target.value)}
+        <div>
+          <h3 id="advance-history-title">Advance history</h3>
+          <p>Deducted in pay month {selectedMonth}: {formatSgd(selectedMonthTotal)}</p>
+        </div>
+        <div className="panel-actions">
+          <label className="compact-filter">
+            Filter
+            <select
+              value={filter}
+              onChange={(event) => onFilterChange(event.target.value)}
+            >
+              <option value="all">All advances</option>
+              <option value="selected">Deducted this pay month</option>
+            </select>
+          </label>
+          <button
+            type="button"
+            className="mobile-floating-action"
+            onClick={onAddAdvance}
           >
-            <option value="all">All advances</option>
-            <option value="selected">Deducted this pay month</option>
-          </select>
-        </label>
+            Add advance
+          </button>
+        </div>
       </div>
       {filteredAdvances.length ? (
         <ul className="record-list scroll-list">
@@ -480,7 +488,7 @@ function AdvanceHistoryItem({
 
   return (
     <li>
-      <div>
+      <div className="advance-history-primary">
         <strong>{formatSgd(advance.amount)}</strong>
         <span>{advance.date}</span>
       </div>

@@ -67,12 +67,10 @@ export function SalaryScreen({
 
   return (
     <section aria-labelledby="salary-title" className="screen">
-      <header className="screen-header">
-        <div>
-          <h2 id="salary-title">Salary</h2>
-          <p>Pay month {selectedMonth}</p>
-        </div>
-      </header>
+      <h2 id="salary-title" className="visually-hidden">
+        Salary
+      </h2>
+      <span className="visually-hidden">Pay month {selectedMonth}</span>
       <section className="pay-panel" aria-label="Pay decision">
         <div>
           <span>Amount to pay</span>
