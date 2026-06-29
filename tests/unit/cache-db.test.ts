@@ -14,6 +14,7 @@ describe("cacheDb", () => {
   it("stores spreadsheet metadata and selected month preferences", () => {
     setCachedAppPreferences({
       spreadsheetId: "sheet_123",
+      spreadsheetUrl: "https://docs.google.com/spreadsheets/d/sheet_123/edit",
       selectedMonth: "2026-06",
       payCycleStartDay: 26,
       googleClientId: "1234567890-valid.apps.googleusercontent.com",
@@ -21,6 +22,7 @@ describe("cacheDb", () => {
 
     expect(getCachedAppPreferences()).toEqual({
       spreadsheetId: "sheet_123",
+      spreadsheetUrl: "https://docs.google.com/spreadsheets/d/sheet_123/edit",
       selectedMonth: "2026-06",
       payCycleStartDay: 26,
       googleClientId: "1234567890-valid.apps.googleusercontent.com",
@@ -43,6 +45,29 @@ describe("cacheDb", () => {
       JSON.parse(localStorage.getItem("helper-tracker:preferences") ?? "{}"),
     ).toEqual({
       selectedMonth: "2026-06",
+    });
+  });
+
+  it("derives a browser-local spreadsheet URL when only the id is cached", () => {
+    setCachedAppPreferences({
+      spreadsheetId: "sheet_123",
+    });
+
+    expect(getCachedAppPreferences()).toEqual({
+      spreadsheetId: "sheet_123",
+      spreadsheetUrl: "https://docs.google.com/spreadsheets/d/sheet_123/edit",
+    });
+  });
+
+  it("does not keep mismatched spreadsheet URLs in browser preferences", () => {
+    setCachedAppPreferences({
+      spreadsheetId: "sheet_123",
+      spreadsheetUrl: "https://docs.google.com/spreadsheets/d/sheet_other/edit",
+    });
+
+    expect(getCachedAppPreferences()).toEqual({
+      spreadsheetId: "sheet_123",
+      spreadsheetUrl: "https://docs.google.com/spreadsheets/d/sheet_123/edit",
     });
   });
 

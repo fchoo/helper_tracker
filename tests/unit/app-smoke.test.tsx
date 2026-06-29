@@ -3,8 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../src/app/App";
 import {
-  GOOGLE_APP_SCOPES,
-  GOOGLE_DRIVE_APPDATA_SCOPE,
+  GOOGLE_DRIVE_METADATA_SCOPE,
   GOOGLE_SHEETS_SCOPE,
 } from "../../src/integrations/google/auth";
 
@@ -194,7 +193,7 @@ describe("App", () => {
     expect(createGoogleTokenClient).toHaveBeenCalledWith(
       expect.objectContaining({
         clientId: "1234567890-valid.apps.googleusercontent.com",
-        scope: GOOGLE_APP_SCOPES,
+        scope: GOOGLE_SHEETS_SCOPE,
       }),
     );
     expect(requestToken).toHaveBeenCalledWith({ prompt: "consent" });
@@ -280,26 +279,26 @@ describe("App", () => {
     expect(await screen.findByText("Loaded salary")).toBeInTheDocument();
   });
 
-  it("stores and restores setup from Google account app data", async () => {
+  it("selects a Google Sheet from Drive and stores the connection locally", async () => {
     const user = userEvent.setup();
     const requestToken = vi.fn().mockResolvedValue("token_123");
     const createGoogleTokenClient = vi.fn().mockReturnValue({ requestToken });
-    const readJsonFile = vi.fn().mockResolvedValue({
-      spreadsheetId: "sheet_from_account",
-      selectedMonth: "2026-08",
-      payCycleStartDay: 15,
-      googleClientId: "should-not-persist.apps.googleusercontent.com",
-    });
-    const writeJsonFile = vi.fn().mockResolvedValue(undefined);
-    const createGoogleDriveAppDataClient = vi.fn().mockReturnValue({
-      readJsonFile,
-      writeJsonFile,
+    const listSpreadsheets = vi.fn().mockResolvedValue([
+      {
+        id: "sheet_from_drive",
+        name: "Domestic Helper Tracker",
+        webViewLink: "https://docs.google.com/spreadsheets/d/sheet_from_drive/edit",
+        modifiedTime: "2026-06-29T10:00:00.000Z",
+      },
+    ]);
+    const createGoogleDriveClient = vi.fn().mockReturnValue({
+      listSpreadsheets,
     });
     const sheetsClient = createMockGoogleSheetsClient({
       "Config!A:I": [
         requiredHeaderRows.Config,
         [
-          "cfg_from_account",
+          "cfg_from_drive",
           "880",
           "2026-01-01",
           "26",
@@ -317,25 +316,31 @@ describe("App", () => {
       <App
         googleClientId="1234567890-valid.apps.googleusercontent.com"
         createGoogleTokenClient={createGoogleTokenClient}
-        createGoogleDriveAppDataClient={createGoogleDriveAppDataClient}
+        createGoogleDriveClient={createGoogleDriveClient}
         createGoogleSheetsClient={createGoogleSheetsClient}
       />,
     );
 
     await user.click(screen.getByRole("button", { name: "Config" }));
-    await user.click(screen.getByRole("button", { name: "Restore setup" }));
+    await user.click(screen.getByRole("button", { name: "Choose from Drive" }));
+    await user.click(
+      await screen.findByRole("button", { name: /Domestic Helper Tracker/ }),
+    );
 
     expect(createGoogleTokenClient).toHaveBeenCalledWith(
       expect.objectContaining({
         clientId: "1234567890-valid.apps.googleusercontent.com",
-        scope: GOOGLE_DRIVE_APPDATA_SCOPE,
+        scope: GOOGLE_DRIVE_METADATA_SCOPE,
       }),
     );
-    expect(readJsonFile).toHaveBeenCalledWith("helper-tracker-preferences.json");
+    expect(listSpreadsheets).toHaveBeenCalledWith({ pageSize: 20 });
     expect(
-      await screen.findByText("Connected to sheet_from_account"),
+      await screen.findByText("Connected to sheet_from_drive"),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Pay month")).toHaveValue("2026-08");
+    expect(screen.getByRole("link", { name: "Open Google Sheet" })).toHaveAttribute(
+      "href",
+      "https://docs.google.com/spreadsheets/d/sheet_from_drive/edit",
+    );
     expect(await screen.findByText("Restored salary")).toBeInTheDocument();
     expect(createGoogleTokenClient).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -344,19 +349,17 @@ describe("App", () => {
       }),
     );
     expect(sheetsClient.getValues).toHaveBeenCalledWith(
-      "sheet_from_account",
+      "sheet_from_drive",
       "Config!A:I",
     );
-
-    await user.click(screen.getByRole("button", { name: "Save setup" }));
-
-    expect(writeJsonFile).toHaveBeenCalledWith(
-      "helper-tracker-preferences.json",
-      {
-        spreadsheetId: "sheet_from_account",
-        selectedMonth: "2026-08",
+    expect(
+      JSON.parse(localStorage.getItem("helper-tracker:preferences") ?? "{}"),
+    ).toEqual(
+      expect.objectContaining({
+        spreadsheetId: "sheet_from_drive",
+        spreadsheetUrl: "https://docs.google.com/spreadsheets/d/sheet_from_drive/edit",
         payCycleStartDay: 15,
-      },
+      }),
     );
   });
 

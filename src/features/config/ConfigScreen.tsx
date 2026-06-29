@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { PublicHolidayPanel } from "../calendar/PublicHolidayPanel";
 import type { NewPublicHolidayInput, PublicHoliday } from "../calendar/types";
 import type { SalaryConfig } from "./types";
+import type { GoogleDriveSpreadsheet } from "../../integrations/google/driveClient";
 import { parseMoneyInput } from "../../lib/money";
 import { SalaryPlanHistory } from "./SalaryPlanHistory";
 import { SpreadsheetSetup } from "./SpreadsheetSetup";
@@ -14,17 +15,19 @@ export type ConfigScreenProps = {
   salaryConfigs: SalaryConfig[];
   publicHolidays?: PublicHoliday[];
   spreadsheetId?: string;
+  spreadsheetUrl?: string;
   googleClientId?: string;
   isGoogleOAuthConfigured?: boolean;
   isDeploymentGoogleOAuthConfigured?: boolean;
   onAddSalaryConfig: (config: NewSalaryConfigInput) => Promise<void> | void;
-  onConnectSpreadsheet?: (spreadsheetId: string) => Promise<void> | void;
-  onCreateSpreadsheet?: () => Promise<unknown> | unknown;
+  onConnectSpreadsheet?: (spreadsheet: GoogleDriveSpreadsheet) => Promise<void> | void;
+  onCreateSpreadsheet?: () => Promise<GoogleDriveSpreadsheet> | GoogleDriveSpreadsheet;
+  onListDriveSpreadsheets?: () =>
+    | Promise<GoogleDriveSpreadsheet[]>
+    | GoogleDriveSpreadsheet[];
   onSaveGoogleClientId?: (clientId: string) => Promise<void> | void;
   onClearGoogleClientId?: () => Promise<void> | void;
   onCheckSpreadsheetHealth?: (spreadsheetId: string) => Promise<SpreadsheetHealthCheck> | SpreadsheetHealthCheck;
-  onSaveAccountBackup?: (spreadsheetId?: string) => Promise<void> | void;
-  onRestoreAccountBackup?: () => Promise<void> | void;
   onImportPublicHolidays?: (year: number) => Promise<PublicHoliday[]>;
   onAddPublicHoliday?: (
     holiday: NewPublicHolidayInput,
@@ -40,17 +43,17 @@ export function ConfigScreen({
   salaryConfigs,
   publicHolidays = [],
   spreadsheetId,
+  spreadsheetUrl,
   googleClientId,
   isGoogleOAuthConfigured,
   isDeploymentGoogleOAuthConfigured,
   onAddSalaryConfig,
   onConnectSpreadsheet,
   onCreateSpreadsheet,
+  onListDriveSpreadsheets,
   onSaveGoogleClientId,
   onClearGoogleClientId,
   onCheckSpreadsheetHealth,
-  onSaveAccountBackup,
-  onRestoreAccountBackup,
   onImportPublicHolidays,
   onAddPublicHoliday,
   onUpdatePublicHoliday,
@@ -67,16 +70,16 @@ export function ConfigScreen({
       {onConnectSpreadsheet && onCreateSpreadsheet ? (
         <SpreadsheetSetup
           spreadsheetId={spreadsheetId}
+          spreadsheetUrl={spreadsheetUrl}
           googleClientId={googleClientId}
           isGoogleOAuthConfigured={isGoogleOAuthConfigured}
           isDeploymentGoogleOAuthConfigured={isDeploymentGoogleOAuthConfigured}
           onConnect={onConnectSpreadsheet}
           onCreate={onCreateSpreadsheet}
+          onListDriveSpreadsheets={onListDriveSpreadsheets}
           onSaveGoogleClientId={onSaveGoogleClientId}
           onClearGoogleClientId={onClearGoogleClientId}
           onHealthCheck={onCheckSpreadsheetHealth}
-          onSaveAccountBackup={onSaveAccountBackup}
-          onRestoreAccountBackup={onRestoreAccountBackup}
         />
       ) : null}
       <div className="config-layout">

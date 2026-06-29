@@ -135,7 +135,7 @@ Project scaffold, env config, and static hosting target
 **Description:** Add logic to create or connect a spreadsheet and ensure required sheets and headers exist.
 
 **Acceptance criteria:**
-- [ ] User can paste a spreadsheet ID or create a new spreadsheet when authorized.
+- [ ] User can choose an existing spreadsheet from Google Drive or create a new spreadsheet when authorized.
 - [ ] Required sheets are created when absent.
 - [ ] Headers match the spec and are not duplicated.
 
@@ -154,11 +154,12 @@ Project scaffold, env config, and static hosting target
 **Estimated scope:** Medium
 
 ## Task 6: Add Sheet Repositories and Local Cache Metadata
-**Description:** Implement repositories for reading/writing configs, advances, deductions, time records, and holidays; cache spreadsheet ID and lightweight preferences in IndexedDB/local storage.
+**Description:** Implement repositories for reading/writing configs, advances, deductions, time records, and holidays; cache spreadsheet ID, spreadsheet link, last synced records, and lightweight preferences in browser storage.
 
 **Acceptance criteria:**
 - [ ] CRUD repository functions exist for each raw sheet.
-- [ ] Spreadsheet ID and selected pay month survive refresh.
+- [ ] Spreadsheet ID/link and selected pay month survive refresh.
+- [ ] Cached records may render immediately after refresh, but the app reloads from Google Sheets in the background and treats Sheets as authoritative.
 - [ ] Repository functions return typed domain objects.
 
 **Verification:**

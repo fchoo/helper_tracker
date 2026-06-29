@@ -34,15 +34,21 @@ import {
 } from "../persistence/cacheDb";
 import { fetchSingaporePublicHolidays } from "../integrations/singapore/publicHolidays";
 import { normalizeGoogleClientId } from "../integrations/google/clientId";
-import { normalizeGoogleSpreadsheetId } from "../integrations/google/spreadsheetId";
 import {
-  GOOGLE_APP_SCOPES,
-  GOOGLE_DRIVE_APPDATA_SCOPE,
+  buildGoogleSpreadsheetUrl,
+  normalizeGoogleSpreadsheetId,
+  normalizeGoogleSpreadsheetUrl,
+} from "../integrations/google/spreadsheetId";
+import {
+  GOOGLE_DRIVE_METADATA_SCOPE,
   GOOGLE_SHEETS_SCOPE,
   createGoogleTokenClient as createDefaultGoogleTokenClient,
   type AppGoogleTokenClient,
 } from "../integrations/google/auth";
-import { GoogleDriveAppDataClient } from "../integrations/google/driveAppDataClient";
+import {
+  GoogleDriveClient,
+  type GoogleDriveSpreadsheet,
+} from "../integrations/google/driveClient";
 import { GoogleSheetsClient } from "../integrations/google/sheetsClient";
 import {
   buildEnsureSchemaRequests,
@@ -55,7 +61,6 @@ import { appRoutes, type AppRouteId } from "./routes";
 
 const fallbackMonth = new Date().toISOString().slice(0, 7);
 const defaultPayCycleStartDay = 1;
-const accountPreferencesFileName = "helper-tracker-preferences.json";
 
 type GoogleSheetsAppClient = Pick<
   GoogleSheetsClient,
@@ -66,9 +71,9 @@ type GoogleSheetsAppClient = Pick<
   | "getValues"
   | "updateValues"
 >;
-type GoogleAccountStorageClient = Pick<
-  GoogleDriveAppDataClient,
-  "readJsonFile" | "writeJsonFile"
+type GoogleDriveAppClient = Pick<
+  GoogleDriveClient,
+  "listSpreadsheets"
 >;
 
 function createDefaultGoogleSheetsClient(options: {
@@ -77,10 +82,10 @@ function createDefaultGoogleSheetsClient(options: {
   return new GoogleSheetsClient(options);
 }
 
-function createDefaultGoogleDriveAppDataClient(options: {
+function createDefaultGoogleDriveClient(options: {
   accessToken: string;
-}): GoogleAccountStorageClient {
-  return new GoogleDriveAppDataClient(options);
+}): GoogleDriveAppClient {
+  return new GoogleDriveClient(options);
 }
 
 export type AppProps = {
@@ -92,16 +97,16 @@ export type AppProps = {
   createGoogleSheetsClient?: (options: {
     accessToken: string;
   }) => GoogleSheetsAppClient;
-  createGoogleDriveAppDataClient?: (options: {
+  createGoogleDriveClient?: (options: {
     accessToken: string;
-  }) => GoogleAccountStorageClient;
+  }) => GoogleDriveAppClient;
 };
 
 export function App({
   googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID,
   createGoogleTokenClient = createDefaultGoogleTokenClient,
   createGoogleSheetsClient = createDefaultGoogleSheetsClient,
-  createGoogleDriveAppDataClient = createDefaultGoogleDriveAppDataClient,
+  createGoogleDriveClient = createDefaultGoogleDriveClient,
 }: AppProps = {}) {
   const cachedPreferences = useMemo(() => getCachedAppPreferences(), []);
   const cachedSheetRecords = useMemo(
@@ -111,6 +116,9 @@ export function App({
   const deploymentGoogleClientId = normalizeGoogleClientId(googleClientId);
   const [activeRoute, setActiveRoute] = useState<AppRouteId>("salary");
   const [spreadsheetId, setSpreadsheetId] = useState(cachedPreferences.spreadsheetId);
+  const [spreadsheetUrl, setSpreadsheetUrl] = useState(
+    cachedPreferences.spreadsheetUrl,
+  );
   const [selectedMonth, setSelectedMonth] = useState(
     cachedPreferences.selectedMonth ?? fallbackMonth,
   );
@@ -243,6 +251,7 @@ export function App({
   ): CachedAppPreferences {
     return sanitizeCachedAppPreferences({
       spreadsheetId,
+      spreadsheetUrl,
       selectedMonth,
       payCycleStartDay,
       googleClientId: browserGoogleClientId,
@@ -301,15 +310,23 @@ export function App({
     }
   }
 
-  async function handleConnectSpreadsheet(nextSpreadsheetId: string) {
-    const normalizedSpreadsheetId = normalizeGoogleSpreadsheetId(nextSpreadsheetId);
+  async function handleConnectSpreadsheet(nextSpreadsheet: GoogleDriveSpreadsheet) {
+    const normalizedSpreadsheetId = normalizeGoogleSpreadsheetId(nextSpreadsheet.id);
 
     if (!normalizedSpreadsheetId) {
-      throw new Error("Connect a real Google Spreadsheet ID.");
+      throw new Error("Choose a real Google Sheet.");
     }
 
+    const nextSpreadsheetUrl =
+      normalizeGoogleSpreadsheetUrl(nextSpreadsheet.webViewLink, normalizedSpreadsheetId) ??
+      buildGoogleSpreadsheetUrl(normalizedSpreadsheetId);
+
     setSpreadsheetId(normalizedSpreadsheetId);
-    cachePreferences({ spreadsheetId: normalizedSpreadsheetId });
+    setSpreadsheetUrl(nextSpreadsheetUrl);
+    cachePreferences({
+      spreadsheetId: normalizedSpreadsheetId,
+      spreadsheetUrl: nextSpreadsheetUrl,
+    });
     await loadSpreadsheetRecords(normalizedSpreadsheetId);
   }
 
@@ -329,22 +346,21 @@ export function App({
     cachePreferences({ googleClientId: undefined });
   }
 
-  async function handleCreateSpreadsheet(): Promise<string> {
+  async function handleCreateSpreadsheet(): Promise<GoogleDriveSpreadsheet> {
     if (!activeGoogleClientId) {
       throw new Error("Add a Google OAuth Client ID before creating an online Google Sheet.");
     }
 
     const tokenClient = createGoogleTokenClient({
       clientId: activeGoogleClientId,
-      scope: GOOGLE_APP_SCOPES,
+      scope: GOOGLE_SHEETS_SCOPE,
     });
     const accessToken = await tokenClient.requestToken({ prompt: "consent" });
     googleSheetsAccessTokenRef.current = accessToken;
+    const sheetTitle = `Domestic Helper Tracker ${new Date().toISOString().slice(0, 10)}`;
     const sheetsClient = createGoogleSheetsClient({ accessToken });
     const spreadsheet = await sheetsClient.createSpreadsheet(
-      buildSpreadsheetCreateBody(
-        `Domestic Helper Tracker ${new Date().toISOString().slice(0, 10)}`,
-      ),
+      buildSpreadsheetCreateBody(sheetTitle),
     );
     const nextSpreadsheetId = readCreatedSpreadsheetId(spreadsheet);
     const spreadsheetMetadata = hasSheetMetadata(spreadsheet)
@@ -356,10 +372,33 @@ export function App({
       await sheetsClient.batchUpdate(nextSpreadsheetId, schemaRequests);
     }
 
+    const nextSpreadsheetUrl = buildGoogleSpreadsheetUrl(nextSpreadsheetId);
     setSpreadsheetId(nextSpreadsheetId);
-    cachePreferences({ spreadsheetId: nextSpreadsheetId });
+    setSpreadsheetUrl(nextSpreadsheetUrl);
+    cachePreferences({
+      spreadsheetId: nextSpreadsheetId,
+      spreadsheetUrl: nextSpreadsheetUrl,
+    });
     await loadSpreadsheetRecordsWithClient(sheetsClient, nextSpreadsheetId);
-    return nextSpreadsheetId;
+    return {
+      id: nextSpreadsheetId,
+      name: sheetTitle,
+      webViewLink: nextSpreadsheetUrl,
+    };
+  }
+
+  async function handleListDriveSpreadsheets(): Promise<GoogleDriveSpreadsheet[]> {
+    if (!activeGoogleClientId) {
+      throw new Error("Add a Google OAuth Client ID before choosing from Google Drive.");
+    }
+
+    const tokenClient = createGoogleTokenClient({
+      clientId: activeGoogleClientId,
+      scope: GOOGLE_DRIVE_METADATA_SCOPE,
+    });
+    const accessToken = await tokenClient.requestToken({ prompt: "consent" });
+    const driveClient = createGoogleDriveClient({ accessToken });
+    return driveClient.listSpreadsheets({ pageSize: 20 });
   }
 
   async function handleCheckSpreadsheetHealth(targetSpreadsheetId: string) {
@@ -369,7 +408,7 @@ export function App({
 
     const tokenClient = createGoogleTokenClient({
       clientId: activeGoogleClientId,
-      scope: GOOGLE_APP_SCOPES,
+      scope: GOOGLE_SHEETS_SCOPE,
     });
     const accessToken = await tokenClient.requestToken({ prompt: "consent" });
     googleSheetsAccessTokenRef.current = accessToken;
@@ -387,72 +426,6 @@ export function App({
         spreadsheetMetadata,
       ),
     );
-  }
-
-  async function handleSaveAccountBackup(targetSpreadsheetId?: string) {
-    const normalizedSpreadsheetId = normalizeGoogleSpreadsheetId(
-      targetSpreadsheetId ?? spreadsheetId,
-    );
-
-    if (!normalizedSpreadsheetId) {
-      throw new Error("Connect a real Google Sheet before saving account backup.");
-    }
-
-    const driveClient = await createAccountStorageClient();
-    const preferences = buildAccountPreferences({
-      spreadsheetId: normalizedSpreadsheetId,
-    });
-
-    await driveClient.writeJsonFile(accountPreferencesFileName, preferences);
-    setSpreadsheetId(normalizedSpreadsheetId);
-    cachePreferences({ spreadsheetId: normalizedSpreadsheetId });
-  }
-
-  async function handleRestoreAccountBackup() {
-    const driveClient = await createAccountStorageClient();
-    const storedPreferences = await driveClient.readJsonFile(
-      accountPreferencesFileName,
-    );
-
-    if (!isCachedAppPreferences(storedPreferences)) {
-      throw new Error("No saved Helper Tracker setup was found in this Google account.");
-    }
-
-    const restoredPreferences = sanitizeCachedAppPreferences(storedPreferences);
-
-    if (!restoredPreferences.spreadsheetId) {
-      throw new Error("Saved account setup does not include a Google Sheet.");
-    }
-
-    setSpreadsheetId(restoredPreferences.spreadsheetId);
-    await loadSpreadsheetRecords(restoredPreferences.spreadsheetId);
-
-    if (restoredPreferences.selectedMonth) {
-      setSelectedMonth(restoredPreferences.selectedMonth);
-    }
-
-    if (restoredPreferences.payCycleStartDay) {
-      setPayCycleStartDay(restoredPreferences.payCycleStartDay);
-    }
-
-    cachePreferences({
-      spreadsheetId: restoredPreferences.spreadsheetId,
-      selectedMonth: restoredPreferences.selectedMonth ?? selectedMonth,
-      payCycleStartDay: restoredPreferences.payCycleStartDay ?? payCycleStartDay,
-    });
-  }
-
-  async function createAccountStorageClient(): Promise<GoogleAccountStorageClient> {
-    if (!activeGoogleClientId) {
-      throw new Error("Add a Google OAuth Client ID before using account backup.");
-    }
-
-    const tokenClient = createGoogleTokenClient({
-      clientId: activeGoogleClientId,
-      scope: GOOGLE_DRIVE_APPDATA_SCOPE,
-    });
-    const accessToken = await tokenClient.requestToken({ prompt: "consent" });
-    return createGoogleDriveAppDataClient({ accessToken });
   }
 
   async function createSheetsRepository(): Promise<SheetsRepository> {
@@ -528,17 +501,6 @@ export function App({
       advanceDeductions: nextAdvanceDeductions,
       timeRecords: nextTimeRecords,
       publicHolidays: nextPublicHolidays,
-    });
-  }
-
-  function buildAccountPreferences(
-    overrides: CachedAppPreferences = {},
-  ): CachedAppPreferences {
-    return sanitizeCachedAppPreferences({
-      spreadsheetId,
-      selectedMonth,
-      payCycleStartDay,
-      ...overrides,
     });
   }
 
@@ -811,6 +773,7 @@ export function App({
         <ConfigScreen
           selectedMonth={selectedMonth}
           spreadsheetId={spreadsheetId}
+          spreadsheetUrl={spreadsheetUrl}
           googleClientId={browserGoogleClientId}
           isGoogleOAuthConfigured={Boolean(activeGoogleClientId)}
           isDeploymentGoogleOAuthConfigured={Boolean(deploymentGoogleClientId)}
@@ -819,11 +782,10 @@ export function App({
           onAddSalaryConfig={handleAddSalaryConfig}
           onConnectSpreadsheet={handleConnectSpreadsheet}
           onCreateSpreadsheet={handleCreateSpreadsheet}
+          onListDriveSpreadsheets={handleListDriveSpreadsheets}
           onSaveGoogleClientId={handleSaveGoogleClientId}
           onClearGoogleClientId={handleClearGoogleClientId}
           onCheckSpreadsheetHealth={handleCheckSpreadsheetHealth}
-          onSaveAccountBackup={handleSaveAccountBackup}
-          onRestoreAccountBackup={handleRestoreAccountBackup}
           onImportPublicHolidays={handleImportPublicHolidays}
           onAddPublicHoliday={handleAddPublicHoliday}
           onUpdatePublicHoliday={handleUpdatePublicHoliday}
@@ -992,10 +954,6 @@ function readHeaderValues(valuesResponse: unknown): string[] {
   }
 
   return valuesResponse.values[0].map((value) => String(value ?? ""));
-}
-
-function isCachedAppPreferences(value: unknown): value is CachedAppPreferences {
-  return typeof value === "object" && value !== null;
 }
 
 function mergePublicHolidays(

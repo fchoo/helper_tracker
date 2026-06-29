@@ -1,9 +1,7 @@
 import { FormEvent, useState } from "react";
 import { normalizeGoogleClientId } from "../../integrations/google/clientId";
-import {
-  isLegacyLocalSpreadsheetId,
-  normalizeGoogleSpreadsheetId,
-} from "../../integrations/google/spreadsheetId";
+import type { GoogleDriveSpreadsheet } from "../../integrations/google/driveClient";
+import { normalizeGoogleSpreadsheetId } from "../../integrations/google/spreadsheetId";
 import {
   buildUncheckedSpreadsheetHealth,
   checkSpreadsheetHealth,
@@ -12,42 +10,45 @@ import {
 
 export type SpreadsheetSetupProps = {
   spreadsheetId?: string;
+  spreadsheetUrl?: string;
   googleClientId?: string;
   isGoogleOAuthConfigured?: boolean;
   isDeploymentGoogleOAuthConfigured?: boolean;
-  onConnect: (spreadsheetId: string) => Promise<void> | void;
-  onCreate: () => Promise<unknown> | unknown;
+  onConnect: (spreadsheet: GoogleDriveSpreadsheet) => Promise<void> | void;
+  onCreate: () => Promise<GoogleDriveSpreadsheet> | GoogleDriveSpreadsheet;
+  onListDriveSpreadsheets?: () =>
+    | Promise<GoogleDriveSpreadsheet[]>
+    | GoogleDriveSpreadsheet[];
   onSaveGoogleClientId?: (clientId: string) => Promise<void> | void;
   onClearGoogleClientId?: () => Promise<void> | void;
   onHealthCheck?: (spreadsheetId: string) => Promise<SpreadsheetHealthCheck> | SpreadsheetHealthCheck;
-  onSaveAccountBackup?: (spreadsheetId?: string) => Promise<void> | void;
-  onRestoreAccountBackup?: () => Promise<void> | void;
 };
 
 export function SpreadsheetSetup({
   spreadsheetId,
+  spreadsheetUrl,
   googleClientId,
   isGoogleOAuthConfigured,
   isDeploymentGoogleOAuthConfigured = false,
   onConnect,
   onCreate,
+  onListDriveSpreadsheets,
   onSaveGoogleClientId,
   onClearGoogleClientId,
   onHealthCheck,
-  onSaveAccountBackup,
-  onRestoreAccountBackup,
 }: SpreadsheetSetupProps) {
   const [inputGoogleClientId, setInputGoogleClientId] = useState("");
-  const [inputSpreadsheetId, setInputSpreadsheetId] = useState("");
   const [error, setError] = useState("");
   const [healthCheck, setHealthCheck] = useState<SpreadsheetHealthCheck>();
   const [isCheckingHealth, setIsCheckingHealth] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [isLoadingDriveSheets, setIsLoadingDriveSheets] = useState(false);
   const [createStatus, setCreateStatus] = useState("");
-  const [accountBackupStatus, setAccountBackupStatus] = useState("");
-  const [isSavingAccountBackup, setIsSavingAccountBackup] = useState(false);
-  const [isRestoringAccountBackup, setIsRestoringAccountBackup] = useState(false);
+  const [driveSpreadsheets, setDriveSpreadsheets] = useState<
+    GoogleDriveSpreadsheet[]
+  >([]);
   const canCreateSpreadsheet = isGoogleOAuthConfigured ?? true;
+  const canChooseSpreadsheet = isGoogleOAuthConfigured ?? true;
   const connectedSpreadsheetId = normalizeGoogleSpreadsheetId(spreadsheetId);
   const displayedHealthCheck =
     healthCheck && healthCheck.spreadsheetId === connectedSpreadsheetId
@@ -75,23 +76,52 @@ export function SpreadsheetSetup({
     setInputGoogleClientId("");
   }
 
-  async function handleConnect(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const trimmedSpreadsheetId = inputSpreadsheetId.trim();
-    const normalizedSpreadsheetId =
-      normalizeGoogleSpreadsheetId(trimmedSpreadsheetId);
+  async function handleLoadDriveSpreadsheets() {
+    setError("");
+    setCreateStatus("");
 
-    if (!normalizedSpreadsheetId) {
-      setError(getSpreadsheetIdValidationMessage(trimmedSpreadsheetId));
+    if (!canChooseSpreadsheet) {
+      setError("Add a Google OAuth Client ID before choosing from Google Drive.");
       return;
     }
 
+    if (!onListDriveSpreadsheets) {
+      setError("Google Drive selection is not available.");
+      return;
+    }
+
+    try {
+      setIsLoadingDriveSheets(true);
+      setCreateStatus("Waiting for Google sign-in...");
+      setDriveSpreadsheets(await onListDriveSpreadsheets());
+      setCreateStatus("");
+    } catch (loadError) {
+      setCreateStatus("");
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Could not load Google Sheets from Drive.",
+      );
+    } finally {
+      setIsLoadingDriveSheets(false);
+    }
+  }
+
+  async function handleSelectDriveSpreadsheet(spreadsheet: GoogleDriveSpreadsheet) {
     setError("");
-    setAccountBackupStatus("");
     setCreateStatus("");
-    await onConnect(normalizedSpreadsheetId);
-    setHealthCheck(buildUncheckedSpreadsheetHealth(normalizedSpreadsheetId));
-    setInputSpreadsheetId("");
+
+    try {
+      await onConnect(spreadsheet);
+      setHealthCheck(buildUncheckedSpreadsheetHealth(spreadsheet.id));
+      setCreateStatus("Google Sheet connected.");
+    } catch (connectError) {
+      setError(
+        connectError instanceof Error
+          ? connectError.message
+          : "Could not connect Google Sheet.",
+      );
+    }
   }
 
   async function handleCreate() {
@@ -106,7 +136,8 @@ export function SpreadsheetSetup({
     try {
       setIsCreating(true);
       setCreateStatus("Waiting for Google sign-in...");
-      await onCreate();
+      const createdSpreadsheet = await onCreate();
+      setHealthCheck(buildUncheckedSpreadsheetHealth(createdSpreadsheet.id));
       setCreateStatus("Google Sheet connected.");
     } catch (createError) {
       setCreateStatus("");
@@ -120,62 +151,11 @@ export function SpreadsheetSetup({
     }
   }
 
-  async function handleSaveAccountBackup() {
-    setError("");
-    setAccountBackupStatus("");
-
-    const targetSpreadsheetId =
-      connectedSpreadsheetId ??
-      normalizeGoogleSpreadsheetId(inputSpreadsheetId.trim());
-
-    if (!targetSpreadsheetId) {
-      setError("Connect or create a Google Sheet before saving account backup.");
-      return;
-    }
-
-    try {
-      setIsSavingAccountBackup(true);
-      await onSaveAccountBackup?.(targetSpreadsheetId);
-      setAccountBackupStatus("Saved to Google account.");
-    } catch (accountBackupError) {
-      setError(
-        accountBackupError instanceof Error
-          ? accountBackupError.message
-          : "Could not save setup to Google account.",
-      );
-    } finally {
-      setIsSavingAccountBackup(false);
-    }
-  }
-
-  async function handleRestoreAccountBackup() {
-    setError("");
-    setCreateStatus("");
-    setAccountBackupStatus("");
-
-    try {
-      setIsRestoringAccountBackup(true);
-      await onRestoreAccountBackup?.();
-      setHealthCheck(undefined);
-      setAccountBackupStatus("Restored from Google account.");
-    } catch (accountBackupError) {
-      setError(
-        accountBackupError instanceof Error
-          ? accountBackupError.message
-          : "Could not restore setup from Google account.",
-      );
-    } finally {
-      setIsRestoringAccountBackup(false);
-    }
-  }
-
   async function handleHealthCheck() {
-    const targetSpreadsheetId =
-      connectedSpreadsheetId ??
-      normalizeGoogleSpreadsheetId(inputSpreadsheetId.trim());
+    const targetSpreadsheetId = connectedSpreadsheetId;
 
     if (!targetSpreadsheetId) {
-      setError("Connect or create a Google Sheet before checking health.");
+      setError("Choose or create a Google Sheet before checking health.");
       setHealthCheck(checkSpreadsheetHealth());
       return;
     }
@@ -259,31 +239,50 @@ export function SpreadsheetSetup({
           <span className="setup-step">{onSaveGoogleClientId ? "2" : "1"}</span>
           <h3>Connect workbook</h3>
           {connectedSpreadsheetId ? (
-            <p className="connected-sheet">Connected to {connectedSpreadsheetId}</p>
-          ) : (
-            <p>Paste an existing Google Spreadsheet ID or create a new workbook.</p>
-          )}
-          <form className="inline-form" onSubmit={handleConnect}>
-            <label>
-              Google Spreadsheet ID
-              <input
-                value={inputSpreadsheetId}
-                onChange={(event) => setInputSpreadsheetId(event.target.value)}
-                placeholder="1AbC..."
-              />
-            </label>
-            <div className="button-row">
-              <button type="submit">Connect sheet</button>
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={handleCreate}
-                disabled={isCreating || !canCreateSpreadsheet}
-              >
-                {isCreating ? "Creating..." : "Create new sheet"}
-              </button>
+            <div className="connected-sheet">
+              <span>Connected to {connectedSpreadsheetId}</span>
+              {spreadsheetUrl ? (
+                <a href={spreadsheetUrl} target="_blank" rel="noreferrer">
+                  Open Google Sheet
+                </a>
+              ) : null}
             </div>
-          </form>
+          ) : (
+            <p>Choose an existing Google Sheet from Drive or create a new workbook.</p>
+          )}
+          <div className="button-row">
+            <button
+              type="button"
+              onClick={handleLoadDriveSpreadsheets}
+              disabled={isLoadingDriveSheets || !canChooseSpreadsheet}
+            >
+              {isLoadingDriveSheets ? "Loading Drive..." : "Choose from Drive"}
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={handleCreate}
+              disabled={isCreating || !canCreateSpreadsheet}
+            >
+              {isCreating ? "Creating..." : "Create new sheet"}
+            </button>
+          </div>
+          {driveSpreadsheets.length > 0 ? (
+            <ul className="drive-sheet-list" aria-label="Google Drive sheets">
+              {driveSpreadsheets.map((spreadsheet) => (
+                <li key={spreadsheet.id}>
+                  <button
+                    type="button"
+                    className="drive-sheet-option"
+                    onClick={() => handleSelectDriveSpreadsheet(spreadsheet)}
+                  >
+                    <span>{spreadsheet.name}</span>
+                    <small>{formatSpreadsheetModifiedTime(spreadsheet.modifiedTime)}</small>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
 
         <div className="setup-card health-card">
@@ -313,40 +312,10 @@ export function SpreadsheetSetup({
             {isCheckingHealth ? "Checking..." : "Run health check"}
           </button>
         </div>
-        {onSaveAccountBackup || onRestoreAccountBackup ? (
-          <div className="setup-card">
-            <span className="setup-step">{onSaveGoogleClientId ? "4" : "3"}</span>
-            <h3>Account backup</h3>
-            <p>Use Google account storage to keep this setup across browsers.</p>
-            <div className="button-row">
-              {onSaveAccountBackup ? (
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={handleSaveAccountBackup}
-                  disabled={isSavingAccountBackup || !connectedSpreadsheetId}
-                >
-                  {isSavingAccountBackup ? "Saving..." : "Save setup"}
-                </button>
-              ) : null}
-              {onRestoreAccountBackup ? (
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={handleRestoreAccountBackup}
-                  disabled={isRestoringAccountBackup}
-                >
-                  {isRestoringAccountBackup ? "Restoring..." : "Restore setup"}
-                </button>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
       </div>
 
       {error ? <p role="alert">{error}</p> : null}
       {createStatus ? <p role="status">{createStatus}</p> : null}
-      {accountBackupStatus ? <p role="status">{accountBackupStatus}</p> : null}
     </section>
   );
 }
@@ -366,11 +335,20 @@ function formatHealthStatus(status: SpreadsheetHealthCheck["status"]): string {
 
   return "Not connected";
 }
-
-function getSpreadsheetIdValidationMessage(spreadsheetId: string): string {
-  if (isLegacyLocalSpreadsheetId(spreadsheetId)) {
-    return "That is an old local placeholder. Create or connect a real Google Sheet.";
+function formatSpreadsheetModifiedTime(modifiedTime?: string): string {
+  if (!modifiedTime) {
+    return "Google Sheet";
   }
 
-  return "Enter a Google Spreadsheet ID.";
+  const parsedDate = new Date(modifiedTime);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "Google Sheet";
+  }
+
+  const formattedDate = new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+  }).format(parsedDate);
+
+  return `Modified ${formattedDate}`;
 }

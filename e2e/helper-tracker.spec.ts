@@ -30,6 +30,20 @@ test.beforeEach(async ({ page }) => {
       },
     });
   });
+  await page.route("https://www.googleapis.com/drive/v3/files?**", async (route) => {
+    await route.fulfill({
+      json: {
+        files: [
+          {
+            id: "sheet_e2e",
+            name: "Domestic Helper Tracker E2E",
+            webViewLink: "https://docs.google.com/spreadsheets/d/sheet_e2e/edit",
+            modifiedTime: "2026-06-29T10:00:00.000Z",
+          },
+        ],
+      },
+    });
+  });
   await page.route("https://sheets.googleapis.com/v4/spreadsheets/sheet_e2e/values/**", async (route) => {
     const encodedRange = route.request().url().split("/values/")[1] ?? "";
     const range = decodeURIComponent(encodedRange);
@@ -56,8 +70,8 @@ test("tracks a monthly helper payout from setup through salary review", async ({
     .getByLabel("OAuth Client ID")
     .fill("1234567890-e2e.apps.googleusercontent.com");
   await page.getByRole("button", { name: "Save OAuth ID" }).click();
-  await page.getByLabel("Google Spreadsheet ID").fill("sheet_e2e");
-  await page.getByRole("button", { name: "Connect sheet" }).click();
+  await page.getByRole("button", { name: "Choose from Drive" }).click();
+  await page.getByRole("button", { name: /Domestic Helper Tracker E2E/ }).click();
   await expect(page.getByText("Connected to sheet_e2e")).toBeVisible();
   await page.getByRole("button", { name: "Run health check" }).click();
   await expect(page.getByText("Schema healthy")).toBeVisible();

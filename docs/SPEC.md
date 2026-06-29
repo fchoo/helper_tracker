@@ -31,8 +31,8 @@ Recommended MVP stack:
 - Styling: CSS Modules or plain CSS with CSS custom properties
 - Routing: React Router, or a lightweight internal tab router if only four screens exist
 - Source of truth: Google Sheets through Google Sheets API v4
-- Authentication: Google Identity Services OAuth in the browser
-- Local persistence: IndexedDB through Dexie for cache and app preferences only
+- Authentication: Google Identity Services OAuth in the browser, with Google Drive metadata access used only to choose an existing Sheet
+- Local persistence: browser storage for the selected spreadsheet ID/link, selected pay month, and last synced records as a temporary cache only
 - Validation: Zod
 - Testing: Vitest + React Testing Library + Playwright
 - PWA: Vite PWA plugin after the core app works

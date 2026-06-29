@@ -93,24 +93,46 @@ describe("ConfigScreen", () => {
 
   it("connects sheet setup when spreadsheet handlers are provided", async () => {
     const onConnectSpreadsheet = vi.fn().mockResolvedValue(undefined);
+    const onListDriveSpreadsheets = vi.fn().mockResolvedValue([
+      {
+        id: "sheet_next",
+        name: "Next helper tracker",
+        webViewLink: "https://docs.google.com/spreadsheets/d/sheet_next/edit",
+      },
+    ]);
 
     render(
       <ConfigScreen
         selectedMonth="2026-06"
         spreadsheetId="sheet_existing"
+        spreadsheetUrl="https://docs.google.com/spreadsheets/d/sheet_existing/edit"
         salaryConfigs={[]}
         onAddSalaryConfig={vi.fn()}
         onConnectSpreadsheet={onConnectSpreadsheet}
-        onCreateSpreadsheet={vi.fn()}
+        onCreateSpreadsheet={vi.fn().mockReturnValue({
+          id: "sheet_created",
+          name: "Created helper tracker",
+        })}
+        onListDriveSpreadsheets={onListDriveSpreadsheets}
       />,
     );
 
     expect(screen.getByText("Connected to sheet_existing")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open Google Sheet" })).toHaveAttribute(
+      "href",
+      "https://docs.google.com/spreadsheets/d/sheet_existing/edit",
+    );
 
-    await userEvent.type(screen.getByLabelText("Google Spreadsheet ID"), "sheet_next");
-    await userEvent.click(screen.getByRole("button", { name: "Connect sheet" }));
+    await userEvent.click(screen.getByRole("button", { name: "Choose from Drive" }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Next helper tracker/ }),
+    );
 
-    expect(onConnectSpreadsheet).toHaveBeenCalledWith("sheet_next");
+    expect(onConnectSpreadsheet).toHaveBeenCalledWith({
+      id: "sheet_next",
+      name: "Next helper tracker",
+      webViewLink: "https://docs.google.com/spreadsheets/d/sheet_next/edit",
+    });
   });
 
   it("imports and manages public holidays from config", async () => {

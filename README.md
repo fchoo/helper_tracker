@@ -40,3 +40,9 @@ For GitHub Pages, add a repository variable named `VITE_GOOGLE_CLIENT_ID`.
 This is a public Google OAuth browser client ID, not a client secret. Restrict
 the OAuth client in Google Cloud to the Pages origin, for example
 `https://fchoo.github.io`, and keep client secrets out of this static app.
+
+The Google Cloud project must have the Google Sheets API enabled. Enable the
+Google Drive API as well if you want the in-app "Choose from Drive" sheet
+selector. The app requests Drive metadata read-only access for selection only;
+the chosen spreadsheet ID/link is saved in this browser's local storage, while
+payroll records reload from the connected Google Sheet.

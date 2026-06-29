@@ -4,10 +4,15 @@ import type { PublicHoliday } from "../features/calendar/types";
 import type { SalaryConfig } from "../features/config/types";
 import type { TimeRecord } from "../features/time-records/types";
 import { normalizeGoogleClientId } from "../integrations/google/clientId";
-import { normalizeGoogleSpreadsheetId } from "../integrations/google/spreadsheetId";
+import {
+  buildGoogleSpreadsheetUrl,
+  normalizeGoogleSpreadsheetId,
+  normalizeGoogleSpreadsheetUrl,
+} from "../integrations/google/spreadsheetId";
 
 export type CachedAppPreferences = {
   spreadsheetId?: string;
+  spreadsheetUrl?: string;
   selectedMonth?: string;
   payCycleStartDay?: number;
   googleClientId?: string;
@@ -81,10 +86,14 @@ export function sanitizeCachedAppPreferences(
   preferences: CachedAppPreferences,
 ): CachedAppPreferences {
   const spreadsheetId = normalizeGoogleSpreadsheetId(preferences.spreadsheetId);
+  const spreadsheetUrl = spreadsheetId
+    ? normalizeGoogleSpreadsheetUrl(preferences.spreadsheetUrl, spreadsheetId) ??
+      buildGoogleSpreadsheetUrl(spreadsheetId)
+    : undefined;
   const googleClientId = normalizeGoogleClientId(preferences.googleClientId);
 
   return {
-    ...(spreadsheetId ? { spreadsheetId } : {}),
+    ...(spreadsheetId ? { spreadsheetId, spreadsheetUrl } : {}),
     ...(preferences.selectedMonth && isMonthKey(preferences.selectedMonth)
       ? { selectedMonth: preferences.selectedMonth }
       : {}),

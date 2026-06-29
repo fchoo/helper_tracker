@@ -1,11 +1,7 @@
 export const GOOGLE_SHEETS_SCOPE =
   "https://www.googleapis.com/auth/spreadsheets";
-export const GOOGLE_DRIVE_APPDATA_SCOPE =
-  "https://www.googleapis.com/auth/drive.appdata";
-export const GOOGLE_APP_SCOPES = [
-  GOOGLE_SHEETS_SCOPE,
-  GOOGLE_DRIVE_APPDATA_SCOPE,
-].join(" ");
+export const GOOGLE_DRIVE_METADATA_SCOPE =
+  "https://www.googleapis.com/auth/drive.metadata.readonly";
 
 type GoogleTokenResponse = {
   access_token?: string;
