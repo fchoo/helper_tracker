@@ -14,6 +14,7 @@ describe("cacheDb", () => {
   it("stores spreadsheet metadata and selected month preferences", () => {
     setCachedAppPreferences({
       spreadsheetId: "sheet_123",
+      spreadsheetName: "Domestic Helper Tracker",
       spreadsheetUrl: "https://docs.google.com/spreadsheets/d/sheet_123/edit",
       selectedMonth: "2026-06",
       payCycleStartDay: 26,
@@ -22,6 +23,7 @@ describe("cacheDb", () => {
 
     expect(getCachedAppPreferences()).toEqual({
       spreadsheetId: "sheet_123",
+      spreadsheetName: "Domestic Helper Tracker",
       spreadsheetUrl: "https://docs.google.com/spreadsheets/d/sheet_123/edit",
       selectedMonth: "2026-06",
       payCycleStartDay: 26,

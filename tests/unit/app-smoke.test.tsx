@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../src/app/App";
@@ -229,10 +229,14 @@ describe("App", () => {
       "sheet_online",
       "Public_Holidays!A:G",
     );
-    expect(await screen.findByText("Connected to sheet_online")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("link", {
+        name: /Domestic Helper Tracker .* \(sheet_online\)/,
+      }),
+    ).toBeInTheDocument();
   });
 
-  it("checks the connected Google Sheet against live tabs and headers", async () => {
+  it("loads a cached connected Google Sheet in the background", async () => {
     localStorage.setItem(
       "helper-tracker:preferences",
       JSON.stringify({
@@ -269,13 +273,10 @@ describe("App", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Config" }));
-    await user.click(screen.getByRole("button", { name: "Run health check" }));
+    await user.click(screen.getByRole("button", { name: "Salary plan" }));
 
-    expect(requestToken).toHaveBeenCalledWith({ prompt: "consent" });
-    expect(sheetsClient.getSpreadsheet).toHaveBeenCalledWith("sheet_online");
-    expect(sheetsClient.getValues).toHaveBeenCalledWith("sheet_online", "Config!1:1");
+    expect(requestToken).toHaveBeenCalledWith({ prompt: "" });
     expect(sheetsClient.getValues).toHaveBeenCalledWith("sheet_online", "Config!A:I");
-    expect(await screen.findByText("Schema healthy")).toBeInTheDocument();
     expect(await screen.findByText("Loaded salary")).toBeInTheDocument();
   });
 
@@ -334,12 +335,11 @@ describe("App", () => {
       developerKey: "picker_key",
     });
     expect(
-      await screen.findByText("Connected to sheet_from_drive"),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open Google Sheet" })).toHaveAttribute(
-      "href",
-      "https://docs.google.com/spreadsheets/d/sheet_from_drive/edit",
-    );
+      await screen.findByRole("link", {
+        name: "Domestic Helper Tracker (sheet_from_drive)",
+      }),
+    ).toHaveAttribute("href", "https://docs.google.com/spreadsheets/d/sheet_from_drive/edit");
+    await user.click(screen.getByRole("button", { name: "Salary plan" }));
     expect(await screen.findByText("Restored salary")).toBeInTheDocument();
     expect(createGoogleTokenClient).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -356,6 +356,7 @@ describe("App", () => {
     ).toEqual(
       expect.objectContaining({
         spreadsheetId: "sheet_from_drive",
+        spreadsheetName: "Domestic Helper Tracker",
         spreadsheetUrl: "https://docs.google.com/spreadsheets/d/sheet_from_drive/edit",
         payCycleStartDay: 15,
       }),
@@ -392,12 +393,12 @@ describe("App", () => {
     expect(
       await screen.findByText("Google Sheets did not return a spreadsheet ID."),
     ).toBeInTheDocument();
-    expect(screen.queryByText(/Connected to local_c4495524/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/local_c4495524/)).not.toBeInTheDocument();
   });
 
-  it("lets the user add a browser-local OAuth client id before creating a sheet", async () => {
+  it("hides browser-local OAuth setup and blocks sheet actions when deployment config is missing", async () => {
     const user = userEvent.setup();
-    const requestToken = vi.fn().mockResolvedValue("token_123");
+    const requestToken = vi.fn();
     const createGoogleTokenClient = vi.fn().mockReturnValue({ requestToken });
     const sheetsClient = createMockGoogleSheetsClient();
     const createGoogleSheetsClient = vi.fn().mockReturnValue(sheetsClient);
@@ -411,24 +412,13 @@ describe("App", () => {
 
     await user.click(screen.getByRole("button", { name: "Config" }));
 
+    expect(screen.queryByLabelText("OAuth Client ID")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create new sheet" })).toBeDisabled();
-
-    await user.type(
-      screen.getByLabelText("OAuth Client ID"),
-      "1234567890-local.apps.googleusercontent.com",
-    );
-    await user.click(screen.getByRole("button", { name: "Save OAuth ID" }));
-    await user.click(screen.getByRole("button", { name: "Create new sheet" }));
-
-    expect(createGoogleTokenClient).toHaveBeenCalledWith(
-      expect.objectContaining({
-        clientId: "1234567890-local.apps.googleusercontent.com",
-      }),
-    );
-    expect(await screen.findByText("Connected to sheet_online")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Choose from Drive" })).toBeDisabled();
+    expect(createGoogleTokenClient).not.toHaveBeenCalled();
   });
 
-  it("loads connected sheet records into every page after a health check", async () => {
+  it("loads connected sheet records into every page after background sync", async () => {
     localStorage.setItem(
       "helper-tracker:preferences",
       JSON.stringify({
@@ -512,7 +502,7 @@ describe("App", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Config" }));
-    await user.click(screen.getByRole("button", { name: "Run health check" }));
+    await user.click(screen.getByRole("button", { name: "Salary plan" }));
 
     expect(await screen.findByText("Loaded plan")).toBeInTheDocument();
 
@@ -547,10 +537,18 @@ describe("App", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Config" }));
-    await user.type(screen.getByLabelText("Monthly salary"), "900");
-    await user.type(screen.getByLabelText("Effective start date"), "2026-08-01");
-    await user.type(screen.getByLabelText("Salary notes"), "Saved salary");
-    await user.click(screen.getByRole("button", { name: "Save salary plan" }));
+    await user.click(screen.getByRole("button", { name: "Salary plan" }));
+    await user.click(screen.getByRole("button", { name: "Add salary plan" }));
+    let dialog = screen.getByRole("dialog", { name: "Add salary plan" });
+    await user.type(within(dialog).getByLabelText("Monthly salary"), "900");
+    await user.type(
+      within(dialog).getByLabelText("Effective start date"),
+      "2026-08-01",
+    );
+    await user.type(within(dialog).getByLabelText("Salary notes"), "Saved salary");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Add salary plan" }),
+    );
 
     expect(sheetsClient.appendValues).toHaveBeenCalledWith(
       "sheet_online",
@@ -623,9 +621,14 @@ describe("App", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Config" }));
-    await user.type(screen.getByLabelText("Holiday name"), "Saved holiday");
-    await user.type(screen.getByLabelText("Holiday date"), "2026-08-10");
+    await user.click(screen.getByRole("button", { name: "Public holidays" }));
     await user.click(screen.getByRole("button", { name: "Add public holiday" }));
+    dialog = screen.getByRole("dialog", { name: "Add public holiday" });
+    await user.type(within(dialog).getByLabelText("Holiday name"), "Saved holiday");
+    await user.type(within(dialog).getByLabelText("Holiday date"), "2026-08-10");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Add public holiday" }),
+    );
 
     expect(sheetsClient.appendValues).toHaveBeenCalledWith(
       "sheet_online",
@@ -668,10 +671,18 @@ describe("App", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Config" }));
-    await user.type(screen.getByLabelText("Monthly salary"), "900");
-    await user.type(screen.getByLabelText("Effective start date"), "2026-08-01");
-    await user.type(screen.getByLabelText("Salary notes"), "Refresh salary");
-    await user.click(screen.getByRole("button", { name: "Save salary plan" }));
+    await user.click(screen.getByRole("button", { name: "Salary plan" }));
+    await user.click(screen.getByRole("button", { name: "Add salary plan" }));
+    const dialog = screen.getByRole("dialog", { name: "Add salary plan" });
+    await user.type(within(dialog).getByLabelText("Monthly salary"), "900");
+    await user.type(
+      within(dialog).getByLabelText("Effective start date"),
+      "2026-08-01",
+    );
+    await user.type(within(dialog).getByLabelText("Salary notes"), "Refresh salary");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Add salary plan" }),
+    );
     expect(await screen.findByText("Refresh salary")).toBeInTheDocument();
 
     cleanup();
@@ -685,6 +696,7 @@ describe("App", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Config" }));
+    await user.click(screen.getByRole("button", { name: "Salary plan" }));
 
     expect(await screen.findByText("Refresh salary")).toBeInTheDocument();
     expect(requestToken).toHaveBeenLastCalledWith({ prompt: "" });
@@ -748,6 +760,7 @@ describe("App", () => {
     );
 
     await userEvent.click(screen.getByRole("button", { name: "Config" }));
+    await userEvent.click(screen.getByRole("button", { name: "Salary plan" }));
     expect(await screen.findByText("Fresh sheet salary")).toBeInTheDocument();
     expect(screen.queryByText("Stale cached salary")).not.toBeInTheDocument();
     expect(requestToken).toHaveBeenCalledWith({ prompt: "" });

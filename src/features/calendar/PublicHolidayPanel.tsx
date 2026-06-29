@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { isIsoDate } from "../../lib/dates";
 import type { NewPublicHolidayInput, PublicHoliday } from "./types";
 
@@ -27,12 +27,8 @@ export function PublicHolidayPanel({
     sourceHolidays: holidays,
     holidays,
   });
-  const [name, setName] = useState("");
-  const [date, setDate] = useState("");
-  const [notes, setNotes] = useState("");
-  const [editingHolidayId, setEditingHolidayId] = useState("");
+  const [holidayDialog, setHolidayDialog] = useState<HolidayDialogState>(null);
   const [error, setError] = useState("");
-  const [isSavingHoliday, setIsSavingHoliday] = useState(false);
   const [isImportingHolidays, setIsImportingHolidays] = useState(false);
   const [deletingHolidayId, setDeletingHolidayId] = useState("");
 
@@ -46,9 +42,6 @@ export function PublicHolidayPanel({
   const visibleHolidays = localHolidays.holidays;
   const sortedHolidays = [...visibleHolidays].sort((a, b) =>
     a.date.localeCompare(b.date),
-  );
-  const editingHoliday = visibleHolidays.find(
-    (holiday) => holiday.id === editingHolidayId,
   );
 
   async function handleImport() {
@@ -72,52 +65,6 @@ export function PublicHolidayPanel({
     }
   }
 
-  async function handleAdd(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!onAddPublicHoliday && !editingHoliday) {
-      return;
-    }
-
-    if (!name.trim()) {
-      setError("Holiday name is required.");
-      return;
-    }
-
-    if (!isIsoDate(date)) {
-      setError("Holiday date must use YYYY-MM-DD format.");
-      return;
-    }
-
-    try {
-      setError("");
-      setIsSavingHoliday(true);
-      const input = {
-        name: name.trim(),
-        date,
-        notes: notes.trim(),
-      };
-      const savedHoliday = editingHoliday
-        ? await saveEditedHoliday(editingHoliday, input, onUpdatePublicHoliday)
-        : await onAddPublicHoliday?.(input);
-
-      if (!savedHoliday) {
-        return;
-      }
-
-      setVisibleHolidays(mergeHolidays(visibleHolidays, [savedHoliday]));
-      resetForm();
-    } catch (caughtError) {
-      setError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "Failed to save public holiday.",
-      );
-    } finally {
-      setIsSavingHoliday(false);
-    }
-  }
-
   async function handleDelete(holidayId: string) {
     try {
       setError("");
@@ -131,9 +78,11 @@ export function PublicHolidayPanel({
         visibleHolidays.filter((holiday) => holiday.id !== holidayId),
       );
 
-      if (editingHolidayId === holidayId) {
-        resetForm();
-      }
+      setHolidayDialog((currentDialog) =>
+        currentDialog?.mode === "edit" && currentDialog.holiday.id === holidayId
+          ? null
+          : currentDialog,
+      );
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -146,18 +95,8 @@ export function PublicHolidayPanel({
   }
 
   function handleEdit(holiday: PublicHoliday) {
-    setEditingHolidayId(holiday.id);
-    setName(holiday.name);
-    setDate(holiday.date);
-    setNotes(holiday.notes ?? "");
+    setHolidayDialog({ mode: "edit", holiday });
     setError("");
-  }
-
-  function resetForm() {
-    setName("");
-    setDate("");
-    setNotes("");
-    setEditingHolidayId("");
   }
 
   function setVisibleHolidays(nextHolidays: PublicHoliday[]) {
@@ -165,6 +104,24 @@ export function PublicHolidayPanel({
       sourceHolidays: holidays,
       holidays: nextHolidays,
     });
+  }
+
+  async function handleDialogSubmit(input: NewPublicHolidayInput) {
+    const savedHoliday =
+      holidayDialog?.mode === "edit"
+        ? await saveEditedHoliday(
+            holidayDialog.holiday,
+            input,
+            onUpdatePublicHoliday,
+          )
+        : await onAddPublicHoliday?.(input);
+
+    if (!savedHoliday) {
+      return;
+    }
+
+    setVisibleHolidays(mergeHolidays(visibleHolidays, [savedHoliday]));
+    setHolidayDialog(null);
   }
 
   return (
@@ -177,57 +134,33 @@ export function PublicHolidayPanel({
           <h3 id="public-holidays-title">Public holidays</h3>
           <p>Expected work days by default; add extra pay only from Time & Calendar.</p>
         </div>
-        {onImportPublicHolidays ? (
-          <button
-            type="button"
-            onClick={handleImport}
-            disabled={isImportingHolidays}
-          >
-            {isImportingHolidays
-              ? `Importing ${selectedYear}...`
-              : `Import ${selectedYear} holidays`}
-          </button>
-        ) : null}
+        <div className="button-row">
+          {onAddPublicHoliday ? (
+            <button
+              type="button"
+              className="mobile-floating-action"
+              onClick={() => setHolidayDialog({ mode: "add" })}
+            >
+              Add public holiday
+            </button>
+          ) : null}
+          {onImportPublicHolidays ? (
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={handleImport}
+              disabled={isImportingHolidays}
+            >
+              {isImportingHolidays
+                ? `Importing ${selectedYear}...`
+                : `Import ${selectedYear} holidays`}
+            </button>
+          ) : null}
+        </div>
       </div>
-      <form className="stack-form" onSubmit={handleAdd}>
-        <label>
-          Holiday name
-          <input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            disabled={isSavingHoliday}
-          />
-        </label>
-        <label>
-          Holiday date
-          <input
-            type="date"
-            value={date}
-            onChange={(event) => setDate(event.target.value)}
-            disabled={isSavingHoliday}
-          />
-        </label>
-        <label>
-          Holiday notes
-          <textarea
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            disabled={isSavingHoliday}
-          />
-        </label>
-        {error ? <p role="alert">{error}</p> : null}
-        {onAddPublicHoliday || editingHoliday ? (
-          <button type="submit" disabled={isSavingHoliday}>
-            {isSavingHoliday
-              ? "Saving public holiday..."
-              : editingHoliday
-                ? "Save public holiday"
-                : "Add public holiday"}
-          </button>
-        ) : null}
-      </form>
+      {error ? <p role="alert">{error}</p> : null}
       {sortedHolidays.length ? (
-        <ul className="record-list">
+        <ul className="record-list scroll-list public-holiday-list">
           {sortedHolidays.map((holiday) => (
             <li key={holiday.id}>
               <strong>{holiday.name}</strong>
@@ -257,7 +190,167 @@ export function PublicHolidayPanel({
       ) : (
         <p>No public holidays saved yet.</p>
       )}
+      {holidayDialog ? (
+        <PublicHolidayDialog
+          mode={holidayDialog.mode}
+          holiday={holidayDialog.mode === "edit" ? holidayDialog.holiday : null}
+          onClose={() => setHolidayDialog(null)}
+          onSubmit={handleDialogSubmit}
+        />
+      ) : null}
     </section>
+  );
+}
+
+type HolidayDialogState =
+  | { mode: "add"; holiday?: undefined }
+  | { mode: "edit"; holiday: PublicHoliday }
+  | null;
+
+function PublicHolidayDialog({
+  mode,
+  holiday,
+  onClose,
+  onSubmit,
+}: {
+  mode: "add" | "edit";
+  holiday: PublicHoliday | null;
+  onClose: () => void;
+  onSubmit: (holiday: NewPublicHolidayInput) => Promise<void> | void;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const title = mode === "edit" ? "Edit public holiday" : "Add public holiday";
+
+  useEffect(() => {
+    dialogRef.current?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="modal-backdrop" onMouseDown={onClose}>
+      <div
+        aria-labelledby="public-holiday-dialog-title"
+        aria-modal="true"
+        className="modal-panel"
+        onMouseDown={(event) => event.stopPropagation()}
+        ref={dialogRef}
+        role="dialog"
+        tabIndex={-1}
+      >
+        <div className="modal-header">
+          <div>
+            <h3 id="public-holiday-dialog-title">{title}</h3>
+          </div>
+          <button
+            type="button"
+            className="secondary-button icon-button"
+            aria-label="Close public holiday form"
+            onClick={onClose}
+          >
+            X
+          </button>
+        </div>
+        <PublicHolidayForm
+          mode={mode}
+          holiday={holiday}
+          onSubmit={onSubmit}
+        />
+      </div>
+    </div>
+  );
+}
+
+function PublicHolidayForm({
+  mode,
+  holiday,
+  onSubmit,
+}: {
+  mode: "add" | "edit";
+  holiday: PublicHoliday | null;
+  onSubmit: (holiday: NewPublicHolidayInput) => Promise<void> | void;
+}) {
+  const [name, setName] = useState(holiday?.name ?? "");
+  const [date, setDate] = useState(holiday?.date ?? "");
+  const [notes, setNotes] = useState(holiday?.notes ?? "");
+  const [error, setError] = useState("");
+  const [isSavingHoliday, setIsSavingHoliday] = useState(false);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!name.trim()) {
+      setError("Holiday name is required.");
+      return;
+    }
+
+    if (!isIsoDate(date)) {
+      setError("Holiday date must use YYYY-MM-DD format.");
+      return;
+    }
+
+    try {
+      setError("");
+      setIsSavingHoliday(true);
+      await onSubmit({
+        name: name.trim(),
+        date,
+        notes: notes.trim(),
+      });
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Failed to save public holiday.",
+      );
+    } finally {
+      setIsSavingHoliday(false);
+    }
+  }
+
+  return (
+    <form className="stack-form" onSubmit={handleSubmit}>
+      <label>
+        Holiday name
+        <input
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          disabled={isSavingHoliday}
+        />
+      </label>
+      <label>
+        Holiday date
+        <input
+          type="date"
+          value={date}
+          onChange={(event) => setDate(event.target.value)}
+          disabled={isSavingHoliday}
+        />
+      </label>
+      <label>
+        Holiday notes
+        <textarea
+          value={notes}
+          onChange={(event) => setNotes(event.target.value)}
+          disabled={isSavingHoliday}
+        />
+      </label>
+      {error ? <p role="alert">{error}</p> : null}
+      <button type="submit" disabled={isSavingHoliday}>
+        {isSavingHoliday
+          ? "Saving public holiday..."
+          : mode === "edit"
+            ? "Save public holiday"
+            : "Add public holiday"}
+      </button>
+    </form>
   );
 }
 

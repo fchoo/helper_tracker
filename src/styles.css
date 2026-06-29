@@ -497,6 +497,61 @@ small {
   padding: 0 var(--space-4);
 }
 
+.config-subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-2);
+}
+
+.config-subnav button {
+  min-height: 38px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0 var(--space-3);
+  box-shadow: none;
+}
+
+.config-subnav button:hover {
+  background: var(--surface-muted);
+  color: var(--text);
+  box-shadow: none;
+}
+
+.config-subnav button.active,
+.config-subnav button[aria-current="page"] {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.connected-workbook-link,
+.connected-workbook-name {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid #b9d6da;
+  border-radius: var(--radius);
+  background: var(--primary-soft);
+  color: var(--primary-hover);
+  padding: var(--space-3);
+  font-weight: 850;
+  overflow-wrap: anywhere;
+}
+
+.connected-workbook-link {
+  text-decoration: none;
+}
+
+.connected-workbook-link:hover {
+  border-color: var(--primary);
+  background: #ffffff;
+}
+
 .health-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -834,6 +889,10 @@ small {
   max-height: 300px;
   overflow-y: auto;
   padding-right: 4px;
+}
+
+.public-holiday-list {
+  max-height: min(50vh, 360px);
 }
 
 .scroll-list::-webkit-scrollbar {

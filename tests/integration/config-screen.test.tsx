@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ConfigScreen } from "../../src/features/config/ConfigScreen";
@@ -24,16 +24,25 @@ describe("ConfigScreen", () => {
       />,
     );
 
+    await userEvent.click(screen.getByRole("button", { name: "Salary plan" }));
     expect(screen.getByText("SGD 850.00")).toBeInTheDocument();
 
-    await userEvent.type(screen.getByLabelText("Monthly salary"), "900");
-    await userEvent.type(screen.getByLabelText("Effective start date"), "2026-06-01");
-    await userEvent.clear(screen.getByLabelText("OT day divisor"));
-    await userEvent.type(screen.getByLabelText("OT day divisor"), "26");
-    await userEvent.clear(screen.getByLabelText("Pay date day"));
-    await userEvent.type(screen.getByLabelText("Pay date day"), "26");
-    await userEvent.type(screen.getByLabelText("Salary notes"), "June salary");
-    await userEvent.click(screen.getByRole("button", { name: "Save salary plan" }));
+    await userEvent.click(screen.getByRole("button", { name: "Add salary plan" }));
+    const dialog = screen.getByRole("dialog", { name: "Add salary plan" });
+
+    await userEvent.type(within(dialog).getByLabelText("Monthly salary"), "900");
+    await userEvent.type(
+      within(dialog).getByLabelText("Effective start date"),
+      "2026-06-01",
+    );
+    await userEvent.clear(within(dialog).getByLabelText("OT day divisor"));
+    await userEvent.type(within(dialog).getByLabelText("OT day divisor"), "26");
+    await userEvent.clear(within(dialog).getByLabelText("Pay date day"));
+    await userEvent.type(within(dialog).getByLabelText("Pay date day"), "26");
+    await userEvent.type(within(dialog).getByLabelText("Salary notes"), "June salary");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Add salary plan" }),
+    );
 
     expect(onAddSalaryConfig).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -59,7 +68,14 @@ describe("ConfigScreen", () => {
       />,
     );
 
-    await userEvent.click(screen.getByRole("button", { name: "Save salary plan" }));
+    await userEvent.click(screen.getByRole("button", { name: "Salary plan" }));
+    await userEvent.click(screen.getByRole("button", { name: "Add salary plan" }));
+    await userEvent.click(
+      within(screen.getByRole("dialog", { name: "Add salary plan" })).getByRole(
+        "button",
+        { name: "Add salary plan" },
+      ),
+    );
 
     expect(onAddSalaryConfig).not.toHaveBeenCalled();
     expect(screen.getByText("Monthly salary is required.")).toBeInTheDocument();
@@ -78,17 +94,26 @@ describe("ConfigScreen", () => {
       />,
     );
 
-    await userEvent.type(screen.getByLabelText("Monthly salary"), "900");
-    await userEvent.type(screen.getByLabelText("Effective start date"), "2026-06-01");
-    await userEvent.type(screen.getByLabelText("Salary notes"), "June salary");
-    await userEvent.click(screen.getByRole("button", { name: "Save salary plan" }));
+    await userEvent.click(screen.getByRole("button", { name: "Salary plan" }));
+    await userEvent.click(screen.getByRole("button", { name: "Add salary plan" }));
+    const dialog = screen.getByRole("dialog", { name: "Add salary plan" });
+
+    await userEvent.type(within(dialog).getByLabelText("Monthly salary"), "900");
+    await userEvent.type(
+      within(dialog).getByLabelText("Effective start date"),
+      "2026-06-01",
+    );
+    await userEvent.type(within(dialog).getByLabelText("Salary notes"), "June salary");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Add salary plan" }),
+    );
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Google Sheets write failed.",
     );
-    expect(screen.getByLabelText("Monthly salary")).toHaveValue("900");
-    expect(screen.getByLabelText("Effective start date")).toHaveValue("2026-06-01");
-    expect(screen.getByLabelText("Salary notes")).toHaveValue("June salary");
+    expect(within(dialog).getByLabelText("Monthly salary")).toHaveValue("900");
+    expect(within(dialog).getByLabelText("Effective start date")).toHaveValue("2026-06-01");
+    expect(within(dialog).getByLabelText("Salary notes")).toHaveValue("June salary");
   });
 
   it("connects sheet setup when spreadsheet handlers are provided", async () => {
@@ -105,6 +130,7 @@ describe("ConfigScreen", () => {
       <ConfigScreen
         selectedMonth="2026-06"
         spreadsheetId="sheet_existing"
+        spreadsheetName="Existing helper tracker"
         spreadsheetUrl="https://docs.google.com/spreadsheets/d/sheet_existing/edit"
         salaryConfigs={[]}
         onAddSalaryConfig={vi.fn()}
@@ -117,8 +143,11 @@ describe("ConfigScreen", () => {
       />,
     );
 
-    expect(screen.getByText("Connected to sheet_existing")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open Google Sheet" })).toHaveAttribute(
+    expect(
+      screen.getByRole("link", {
+        name: "Existing helper tracker (sheet_existing)",
+      }),
+    ).toHaveAttribute(
       "href",
       "https://docs.google.com/spreadsheets/d/sheet_existing/edit",
     );
@@ -164,18 +193,29 @@ describe("ConfigScreen", () => {
       />,
     );
 
+    await user.click(screen.getByRole("button", { name: "Public holidays" }));
     await user.click(screen.getByRole("button", { name: "Import 2026 holidays" }));
     expect((await screen.findAllByText("National Day")).length).toBeGreaterThan(0);
 
-    await user.type(screen.getByLabelText("Holiday name"), "Family holiday");
-    await user.type(screen.getByLabelText("Holiday date"), "2026-08-17");
     await user.click(screen.getByRole("button", { name: "Add public holiday" }));
+    let dialog = screen.getByRole("dialog", { name: "Add public holiday" });
+    await user.type(within(dialog).getByLabelText("Holiday name"), "Family holiday");
+    await user.type(within(dialog).getByLabelText("Holiday date"), "2026-08-17");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Add public holiday" }),
+    );
     expect((await screen.findAllByText("Family holiday")).length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole("button", { name: "Edit Family holiday" }));
-    await user.clear(screen.getByLabelText("Holiday name"));
-    await user.type(screen.getByLabelText("Holiday name"), "Family holiday updated");
-    await user.click(screen.getByRole("button", { name: "Save public holiday" }));
+    dialog = screen.getByRole("dialog", { name: "Edit public holiday" });
+    await user.clear(within(dialog).getByLabelText("Holiday name"));
+    await user.type(
+      within(dialog).getByLabelText("Holiday name"),
+      "Family holiday updated",
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Save public holiday" }),
+    );
     expect(
       (await screen.findAllByText("Family holiday updated")).length,
     ).toBeGreaterThan(0);

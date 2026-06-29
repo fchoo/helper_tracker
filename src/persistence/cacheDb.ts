@@ -12,6 +12,7 @@ import {
 
 export type CachedAppPreferences = {
   spreadsheetId?: string;
+  spreadsheetName?: string;
   spreadsheetUrl?: string;
   selectedMonth?: string;
   payCycleStartDay?: number;
@@ -90,10 +91,13 @@ export function sanitizeCachedAppPreferences(
     ? normalizeGoogleSpreadsheetUrl(preferences.spreadsheetUrl, spreadsheetId) ??
       buildGoogleSpreadsheetUrl(spreadsheetId)
     : undefined;
+  const spreadsheetName = readSpreadsheetName(preferences.spreadsheetName);
   const googleClientId = normalizeGoogleClientId(preferences.googleClientId);
 
   return {
-    ...(spreadsheetId ? { spreadsheetId, spreadsheetUrl } : {}),
+    ...(spreadsheetId
+      ? { spreadsheetId, ...(spreadsheetName ? { spreadsheetName } : {}), spreadsheetUrl }
+      : {}),
     ...(preferences.selectedMonth && isMonthKey(preferences.selectedMonth)
       ? { selectedMonth: preferences.selectedMonth }
       : {}),
@@ -102,6 +106,15 @@ export function sanitizeCachedAppPreferences(
       : {}),
     ...(googleClientId ? { googleClientId } : {}),
   };
+}
+
+function readSpreadsheetName(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmedValue = value.trim();
+  return trimmedValue || undefined;
 }
 
 function isPayCycleStartDay(value: unknown): value is number {

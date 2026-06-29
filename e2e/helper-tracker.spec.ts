@@ -102,12 +102,12 @@ test("tracks a monthly helper payout from setup through salary review", async ({
   await setPayMonth(page, "2026-08");
   await page.getByRole("button", { name: "Config" }).click();
 
-  await page
-    .getByLabel("OAuth Client ID")
-    .fill("1234567890-e2e.apps.googleusercontent.com");
-  await page.getByRole("button", { name: "Save OAuth ID" }).click();
   await page.getByRole("button", { name: "Choose from Drive" }).click();
-  await expect(page.getByText("Connected to sheet_e2e")).toBeVisible();
+  await expect(
+    page.getByRole("link", {
+      name: "Domestic Helper Tracker E2E (sheet_e2e)",
+    }),
+  ).toBeVisible();
   await expect
     .poll(() => page.evaluate(() => window.__pickerViewId))
     .toBe("spreadsheets");
@@ -117,22 +117,28 @@ test("tracks a monthly helper payout from setup through salary review", async ({
   await expect
     .poll(() => page.evaluate(() => window.__pickerOrigin))
     .toBe("http://127.0.0.1:4173");
-  await page.getByRole("button", { name: "Run health check" }).click();
-  await expect(page.getByText("Schema healthy")).toBeVisible();
 
-  await page.getByLabel("Monthly salary").fill("900");
-  await page.getByLabel("Effective start date").fill("2026-01-01");
-  await page.getByText("Advanced pay settings").click();
-  await page.getByLabel("Pay date day").fill("26");
-  await page.getByLabel("Salary notes").fill("Current contract");
-  await page.getByRole("button", { name: "Save salary plan" }).click();
+  await page.getByRole("button", { name: "Salary plan" }).click();
+  await page.getByRole("button", { name: "Add salary plan" }).click();
+  const salaryDialog = page.getByRole("dialog", { name: "Add salary plan" });
+  await salaryDialog.getByLabel("Monthly salary").fill("900");
+  await salaryDialog.getByLabel("Effective start date").fill("2026-01-01");
+  await salaryDialog.getByText("Advanced pay settings").click();
+  await salaryDialog.getByLabel("Pay date day").fill("26");
+  await salaryDialog.getByLabel("Salary notes").fill("Current contract");
+  await salaryDialog.getByRole("button", { name: "Add salary plan" }).click();
   await expect(page.getByText("SGD 900.00")).toBeVisible();
-  await page.getByLabel("Holiday name").fill("National Day observed");
-  await page.getByLabel("Holiday date").fill("2026-08-10");
+  await page.getByRole("button", { name: "Public holidays" }).click();
   await page.getByRole("button", { name: "Add public holiday" }).click();
-  await page.getByLabel("Holiday name").fill("National Day");
-  await page.getByLabel("Holiday date").fill("2026-08-09");
+  let holidayDialog = page.getByRole("dialog", { name: "Add public holiday" });
+  await holidayDialog.getByLabel("Holiday name").fill("National Day observed");
+  await holidayDialog.getByLabel("Holiday date").fill("2026-08-10");
+  await holidayDialog.getByRole("button", { name: "Add public holiday" }).click();
   await page.getByRole("button", { name: "Add public holiday" }).click();
+  holidayDialog = page.getByRole("dialog", { name: "Add public holiday" });
+  await holidayDialog.getByLabel("Holiday name").fill("National Day");
+  await holidayDialog.getByLabel("Holiday date").fill("2026-08-09");
+  await holidayDialog.getByRole("button", { name: "Add public holiday" }).click();
 
   await page.getByRole("button", { name: "Advances" }).click();
   await page.getByRole("button", { name: "Add advance" }).click();

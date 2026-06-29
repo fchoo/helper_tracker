@@ -110,6 +110,9 @@ export function App({
   const deploymentGoogleClientId = normalizeGoogleClientId(googleClientId);
   const [activeRoute, setActiveRoute] = useState<AppRouteId>("salary");
   const [spreadsheetId, setSpreadsheetId] = useState(cachedPreferences.spreadsheetId);
+  const [spreadsheetName, setSpreadsheetName] = useState(
+    cachedPreferences.spreadsheetName,
+  );
   const [spreadsheetUrl, setSpreadsheetUrl] = useState(
     cachedPreferences.spreadsheetUrl,
   );
@@ -120,7 +123,7 @@ export function App({
   const [payCycleStartDay, setPayCycleStartDay] = useState(
     cachedPreferences.payCycleStartDay ?? defaultPayCycleStartDay,
   );
-  const [browserGoogleClientId, setBrowserGoogleClientId] = useState(
+  const [browserGoogleClientId] = useState(
     cachedPreferences.googleClientId,
   );
   const [salaryConfigs, setSalaryConfigs] = useState<SalaryConfig[]>(
@@ -245,6 +248,7 @@ export function App({
   ): CachedAppPreferences {
     return sanitizeCachedAppPreferences({
       spreadsheetId,
+      spreadsheetName,
       spreadsheetUrl,
       selectedMonth,
       payCycleStartDay,
@@ -314,30 +318,24 @@ export function App({
     const nextSpreadsheetUrl =
       normalizeGoogleSpreadsheetUrl(nextSpreadsheet.webViewLink, normalizedSpreadsheetId) ??
       buildGoogleSpreadsheetUrl(normalizedSpreadsheetId);
+    const nextSpreadsheetName = normalizeSpreadsheetName(nextSpreadsheet.name);
 
-    setSpreadsheetId(normalizedSpreadsheetId);
-    setSpreadsheetUrl(nextSpreadsheetUrl);
-    cachePreferences({
-      spreadsheetId: normalizedSpreadsheetId,
-      spreadsheetUrl: nextSpreadsheetUrl,
-    });
-    await loadSpreadsheetRecords(normalizedSpreadsheetId);
-  }
-
-  function handleSaveGoogleClientId(nextGoogleClientId: string) {
-    const normalizedGoogleClientId = normalizeGoogleClientId(nextGoogleClientId);
-
-    if (!normalizedGoogleClientId) {
-      throw new Error("Enter a valid Google OAuth Client ID.");
+    if (!activeGoogleClientId) {
+      throw new Error("Add a Google OAuth Client ID before verifying the online sheet.");
     }
 
-    setBrowserGoogleClientId(normalizedGoogleClientId);
-    cachePreferences({ googleClientId: normalizedGoogleClientId });
-  }
-
-  function handleClearGoogleClientId() {
-    setBrowserGoogleClientId(undefined);
-    cachePreferences({ googleClientId: undefined });
+    const accessToken = await getFreshGoogleSheetsAccessToken("consent");
+    const sheetsClient = createGoogleSheetsClient({ accessToken });
+    await verifySpreadsheetSchemaAndLoad(sheetsClient, normalizedSpreadsheetId);
+    setSpreadsheetId(normalizedSpreadsheetId);
+    setSpreadsheetName(nextSpreadsheetName);
+    setSpreadsheetUrl(nextSpreadsheetUrl);
+    setCachedAppPreferences({
+      ...getCachedAppPreferences(),
+      spreadsheetId: normalizedSpreadsheetId,
+      spreadsheetName: nextSpreadsheetName,
+      spreadsheetUrl: nextSpreadsheetUrl,
+    });
   }
 
   async function handleCreateSpreadsheet(): Promise<GooglePickerSpreadsheet> {
@@ -367,13 +365,16 @@ export function App({
     }
 
     const nextSpreadsheetUrl = buildGoogleSpreadsheetUrl(nextSpreadsheetId);
+    await loadSpreadsheetRecordsWithClient(sheetsClient, nextSpreadsheetId);
     setSpreadsheetId(nextSpreadsheetId);
+    setSpreadsheetName(sheetTitle);
     setSpreadsheetUrl(nextSpreadsheetUrl);
-    cachePreferences({
+    setCachedAppPreferences({
+      ...getCachedAppPreferences(),
       spreadsheetId: nextSpreadsheetId,
+      spreadsheetName: sheetTitle,
       spreadsheetUrl: nextSpreadsheetUrl,
     });
-    await loadSpreadsheetRecordsWithClient(sheetsClient, nextSpreadsheetId);
     return {
       id: nextSpreadsheetId,
       name: sheetTitle,
@@ -403,33 +404,6 @@ export function App({
     return pickedSpreadsheet;
   }
 
-  async function handleCheckSpreadsheetHealth(targetSpreadsheetId: string) {
-    if (!activeGoogleClientId) {
-      throw new Error("Add a Google OAuth Client ID before checking the online sheet.");
-    }
-
-    const tokenClient = createGoogleTokenClient({
-      clientId: activeGoogleClientId,
-      scope: GOOGLE_SHEETS_SCOPE,
-    });
-    const accessToken = await tokenClient.requestToken({ prompt: "consent" });
-    googleSheetsAccessTokenRef.current = accessToken;
-    const sheetsClient = createGoogleSheetsClient({ accessToken });
-    const spreadsheetMetadata = readSpreadsheetMetadata(
-      await sheetsClient.getSpreadsheet(targetSpreadsheetId),
-    );
-    await loadSpreadsheetRecordsWithClient(sheetsClient, targetSpreadsheetId);
-
-    return checkSpreadsheetHealth(
-      targetSpreadsheetId,
-      await readSpreadsheetMetadataWithHeaders(
-        sheetsClient,
-        targetSpreadsheetId,
-        spreadsheetMetadata,
-      ),
-    );
-  }
-
   async function createSheetsRepository(): Promise<SheetsRepository> {
     if (!activeGoogleClientId) {
       throw new Error("Add a Google OAuth Client ID before saving to Google Sheets.");
@@ -445,18 +419,6 @@ export function App({
     return new SheetsRepository(
       normalizedSpreadsheetId,
       createGoogleSheetsClient({ accessToken }),
-    );
-  }
-
-  async function loadSpreadsheetRecords(targetSpreadsheetId: string): Promise<void> {
-    if (!activeGoogleClientId) {
-      return;
-    }
-
-    const accessToken = await getGoogleSheetsAccessToken();
-    await loadSpreadsheetRecordsWithClient(
-      createGoogleSheetsClient({ accessToken }),
-      targetSpreadsheetId,
     );
   }
 
@@ -476,6 +438,47 @@ export function App({
     const accessToken = await tokenClient.requestToken({ prompt: "consent" });
     googleSheetsAccessTokenRef.current = accessToken;
     return accessToken;
+  }
+
+  async function getFreshGoogleSheetsAccessToken(
+    prompt: "" | "consent",
+  ): Promise<string> {
+    if (!activeGoogleClientId) {
+      throw new Error("Add a Google OAuth Client ID before using Google Sheets.");
+    }
+
+    const tokenClient = createGoogleTokenClient({
+      clientId: activeGoogleClientId,
+      scope: GOOGLE_SHEETS_SCOPE,
+    });
+    const accessToken = await tokenClient.requestToken({ prompt });
+    googleSheetsAccessTokenRef.current = accessToken;
+    return accessToken;
+  }
+
+  async function verifySpreadsheetSchemaAndLoad(
+    sheetsClient: GoogleSheetsAppClient,
+    targetSpreadsheetId: string,
+  ): Promise<void> {
+    const spreadsheetMetadata = readSpreadsheetMetadata(
+      await sheetsClient.getSpreadsheet(targetSpreadsheetId),
+    );
+    const healthCheck = checkSpreadsheetHealth(
+      targetSpreadsheetId,
+      await readSpreadsheetMetadataWithHeaders(
+        sheetsClient,
+        targetSpreadsheetId,
+        spreadsheetMetadata,
+      ),
+    );
+
+    if (healthCheck.status !== "healthy") {
+      throw new Error(
+        `Google Sheet setup issue: ${healthCheck.detailItems.join(", ")}.`,
+      );
+    }
+
+    await loadSpreadsheetRecordsWithClient(sheetsClient, targetSpreadsheetId);
   }
 
   async function loadSpreadsheetRecordsWithClient(
@@ -775,19 +778,15 @@ export function App({
         <ConfigScreen
           selectedMonth={selectedMonth}
           spreadsheetId={spreadsheetId}
+          spreadsheetName={spreadsheetName}
           spreadsheetUrl={spreadsheetUrl}
-          googleClientId={browserGoogleClientId}
           isGoogleOAuthConfigured={Boolean(activeGoogleClientId)}
-          isDeploymentGoogleOAuthConfigured={Boolean(deploymentGoogleClientId)}
           salaryConfigs={salaryConfigs}
           publicHolidays={publicHolidays}
           onAddSalaryConfig={handleAddSalaryConfig}
           onConnectSpreadsheet={handleConnectSpreadsheet}
           onCreateSpreadsheet={handleCreateSpreadsheet}
           onPickDriveSpreadsheet={handlePickDriveSpreadsheet}
-          onSaveGoogleClientId={handleSaveGoogleClientId}
-          onClearGoogleClientId={handleClearGoogleClientId}
-          onCheckSpreadsheetHealth={handleCheckSpreadsheetHealth}
           onImportPublicHolidays={handleImportPublicHolidays}
           onAddPublicHoliday={handleAddPublicHoliday}
           onUpdatePublicHoliday={handleUpdatePublicHoliday}
@@ -956,6 +955,15 @@ function readHeaderValues(valuesResponse: unknown): string[] {
   }
 
   return valuesResponse.values[0].map((value) => String(value ?? ""));
+}
+
+function normalizeSpreadsheetName(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmedValue = value.trim();
+  return trimmedValue || undefined;
 }
 
 function mergePublicHolidays(

@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { PublicHolidayPanel } from "../calendar/PublicHolidayPanel";
 import type { NewPublicHolidayInput, PublicHoliday } from "../calendar/types";
 import type { SalaryConfig } from "./types";
@@ -6,7 +6,6 @@ import type { GooglePickerSpreadsheet } from "../../integrations/google/pickerCl
 import { parseMoneyInput } from "../../lib/money";
 import { SalaryPlanHistory } from "./SalaryPlanHistory";
 import { SpreadsheetSetup } from "./SpreadsheetSetup";
-import type { SpreadsheetHealthCheck } from "./spreadsheetHealth";
 
 export type NewSalaryConfigInput = Omit<SalaryConfig, "id" | "createdAt">;
 
@@ -15,19 +14,15 @@ export type ConfigScreenProps = {
   salaryConfigs: SalaryConfig[];
   publicHolidays?: PublicHoliday[];
   spreadsheetId?: string;
+  spreadsheetName?: string;
   spreadsheetUrl?: string;
-  googleClientId?: string;
   isGoogleOAuthConfigured?: boolean;
-  isDeploymentGoogleOAuthConfigured?: boolean;
   onAddSalaryConfig: (config: NewSalaryConfigInput) => Promise<void> | void;
   onConnectSpreadsheet?: (spreadsheet: GooglePickerSpreadsheet) => Promise<void> | void;
   onCreateSpreadsheet?: () => Promise<GooglePickerSpreadsheet> | GooglePickerSpreadsheet;
   onPickDriveSpreadsheet?: () =>
     | Promise<GooglePickerSpreadsheet>
     | GooglePickerSpreadsheet;
-  onSaveGoogleClientId?: (clientId: string) => Promise<void> | void;
-  onClearGoogleClientId?: () => Promise<void> | void;
-  onCheckSpreadsheetHealth?: (spreadsheetId: string) => Promise<SpreadsheetHealthCheck> | SpreadsheetHealthCheck;
   onImportPublicHolidays?: (year: number) => Promise<PublicHoliday[]>;
   onAddPublicHoliday?: (
     holiday: NewPublicHolidayInput,
@@ -43,56 +38,72 @@ export function ConfigScreen({
   salaryConfigs,
   publicHolidays = [],
   spreadsheetId,
+  spreadsheetName,
   spreadsheetUrl,
-  googleClientId,
   isGoogleOAuthConfigured,
-  isDeploymentGoogleOAuthConfigured,
   onAddSalaryConfig,
   onConnectSpreadsheet,
   onCreateSpreadsheet,
   onPickDriveSpreadsheet,
-  onSaveGoogleClientId,
-  onClearGoogleClientId,
-  onCheckSpreadsheetHealth,
   onImportPublicHolidays,
   onAddPublicHoliday,
   onUpdatePublicHoliday,
   onDeletePublicHoliday,
 }: ConfigScreenProps) {
+  const [activeConfigSection, setActiveConfigSection] =
+    useState<ConfigSectionId>("sheet");
+  const [isSalaryDialogOpen, setIsSalaryDialogOpen] = useState(false);
+  const activeSection = configSections.find(
+    (section) => section.id === activeConfigSection,
+  );
+
   return (
     <section aria-labelledby="config-title" className="screen">
       <header className="screen-header">
         <div>
           <h2 id="config-title">Configuration</h2>
-          <p>Set up the Google Sheet, salary plan, and public holidays.</p>
+          <p>{activeSection?.description}</p>
         </div>
+        {activeConfigSection === "salary" ? (
+          <button
+            type="button"
+            className="mobile-floating-action"
+            onClick={() => setIsSalaryDialogOpen(true)}
+          >
+            Add salary plan
+          </button>
+        ) : null}
       </header>
-      {onConnectSpreadsheet && onCreateSpreadsheet ? (
+      <nav className="config-subnav" aria-label="Configuration pages">
+        {configSections.map((section) => (
+          <button
+            type="button"
+            key={section.id}
+            className={activeConfigSection === section.id ? "active" : ""}
+            aria-current={activeConfigSection === section.id ? "page" : undefined}
+            onClick={() => setActiveConfigSection(section.id)}
+          >
+            {section.label}
+          </button>
+        ))}
+      </nav>
+      {activeConfigSection === "sheet" &&
+      onConnectSpreadsheet &&
+      onCreateSpreadsheet ? (
         <SpreadsheetSetup
           spreadsheetId={spreadsheetId}
+          spreadsheetName={spreadsheetName}
           spreadsheetUrl={spreadsheetUrl}
-          googleClientId={googleClientId}
           isGoogleOAuthConfigured={isGoogleOAuthConfigured}
-          isDeploymentGoogleOAuthConfigured={isDeploymentGoogleOAuthConfigured}
           onConnect={onConnectSpreadsheet}
           onCreate={onCreateSpreadsheet}
           onPickDriveSpreadsheet={onPickDriveSpreadsheet}
-          onSaveGoogleClientId={onSaveGoogleClientId}
-          onClearGoogleClientId={onClearGoogleClientId}
-          onHealthCheck={onCheckSpreadsheetHealth}
         />
       ) : null}
-      <div className="config-layout">
-        <section aria-labelledby="salary-config-title" className="panel-section">
-          <div className="panel-header">
-            <div>
-              <h3 id="salary-config-title">Salary plan</h3>
-              <p>Set the current monthly salary and payroll calculation settings.</p>
-            </div>
-          </div>
-          <SalaryConfigForm onSubmit={onAddSalaryConfig} />
-        </section>
+      {activeConfigSection === "salary" ? (
         <SalaryConfigList salaryConfigs={salaryConfigs} />
+      ) : null}
+      {activeConfigSection === "holidays" ? (
         <PublicHolidayPanel
           holidays={publicHolidays}
           selectedYear={Number(selectedMonth.slice(0, 4))}
@@ -101,8 +112,93 @@ export function ConfigScreen({
           onUpdatePublicHoliday={onUpdatePublicHoliday}
           onDeletePublicHoliday={onDeletePublicHoliday}
         />
-      </div>
+      ) : null}
+      {isSalaryDialogOpen ? (
+        <SalaryConfigDialog
+          onClose={() => setIsSalaryDialogOpen(false)}
+          onSubmit={async (config) => {
+            await onAddSalaryConfig(config);
+            setIsSalaryDialogOpen(false);
+          }}
+        />
+      ) : null}
     </section>
+  );
+}
+
+type ConfigSectionId = "sheet" | "salary" | "holidays";
+
+const configSections: Array<{
+  id: ConfigSectionId;
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "sheet",
+    label: "Google Sheet",
+    description: "Connect the payroll workbook.",
+  },
+  {
+    id: "salary",
+    label: "Salary plan",
+    description: "Review salary plan history.",
+  },
+  {
+    id: "holidays",
+    label: "Public holidays",
+    description: "Manage public holiday dates.",
+  },
+];
+
+function SalaryConfigDialog({
+  onClose,
+  onSubmit,
+}: {
+  onClose: () => void;
+  onSubmit: ConfigScreenProps["onAddSalaryConfig"];
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    dialogRef.current?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="modal-backdrop" onMouseDown={onClose}>
+      <div
+        aria-labelledby="salary-config-dialog-title"
+        aria-modal="true"
+        className="modal-panel"
+        onMouseDown={(event) => event.stopPropagation()}
+        ref={dialogRef}
+        role="dialog"
+        tabIndex={-1}
+      >
+        <div className="modal-header">
+          <div>
+            <h3 id="salary-config-dialog-title">Add salary plan</h3>
+          </div>
+          <button
+            type="button"
+            className="secondary-button icon-button"
+            aria-label="Close salary plan form"
+            onClick={onClose}
+          >
+            X
+          </button>
+        </div>
+        <SalaryConfigForm onSubmit={onSubmit} />
+      </div>
+    </div>
   );
 }
 
@@ -216,7 +312,7 @@ function SalaryConfigForm({
         />
       </label>
       {error ? <p role="alert">{error}</p> : null}
-      <button type="submit">Save salary plan</button>
+      <button type="submit">Add salary plan</button>
     </form>
   );
 }
