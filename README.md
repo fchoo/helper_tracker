@@ -32,17 +32,20 @@ Create `.env.local` from `.env.example` and set:
 
 ```bash
 VITE_GOOGLE_CLIENT_ID=your-google-oauth-client-id
+VITE_GOOGLE_PICKER_API_KEY=your-restricted-browser-api-key
+VITE_GOOGLE_PICKER_APP_ID=your-google-cloud-project-number
 ```
 
 Do not commit `.env.local`.
 
-For GitHub Pages, add a repository variable named `VITE_GOOGLE_CLIENT_ID`.
-This is a public Google OAuth browser client ID, not a client secret. Restrict
-the OAuth client in Google Cloud to the Pages origin, for example
+For GitHub Pages, add repository variables named `VITE_GOOGLE_CLIENT_ID`,
+`VITE_GOOGLE_PICKER_API_KEY`, and `VITE_GOOGLE_PICKER_APP_ID`. These are public
+browser configuration values, not client secrets. Restrict the OAuth client and
+Picker API key in Google Cloud to the Pages origin, for example
 `https://fchoo.github.io`, and keep client secrets out of this static app.
 
-The Google Cloud project must have the Google Sheets API enabled. Enable the
-Google Drive API as well if you want the in-app "Choose from Drive" sheet
-selector. The app requests Drive metadata read-only access for selection only;
-the chosen spreadsheet ID/link is saved in this browser's local storage, while
-payroll records reload from the connected Google Sheet.
+The Google Cloud project must have the Google Sheets API, Google Drive API, and
+Google Picker API enabled. "Choose from Drive" opens Google's Picker dialog and
+restricts selection to Google Sheets workbooks. The chosen spreadsheet ID/link is
+saved in this browser's local storage, while payroll records reload from the
+connected Google Sheet.

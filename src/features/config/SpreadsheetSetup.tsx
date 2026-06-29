@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { normalizeGoogleClientId } from "../../integrations/google/clientId";
-import type { GoogleDriveSpreadsheet } from "../../integrations/google/driveClient";
+import type { GooglePickerSpreadsheet } from "../../integrations/google/pickerClient";
 import { normalizeGoogleSpreadsheetId } from "../../integrations/google/spreadsheetId";
 import {
   buildUncheckedSpreadsheetHealth,
@@ -14,11 +14,11 @@ export type SpreadsheetSetupProps = {
   googleClientId?: string;
   isGoogleOAuthConfigured?: boolean;
   isDeploymentGoogleOAuthConfigured?: boolean;
-  onConnect: (spreadsheet: GoogleDriveSpreadsheet) => Promise<void> | void;
-  onCreate: () => Promise<GoogleDriveSpreadsheet> | GoogleDriveSpreadsheet;
-  onListDriveSpreadsheets?: () =>
-    | Promise<GoogleDriveSpreadsheet[]>
-    | GoogleDriveSpreadsheet[];
+  onConnect: (spreadsheet: GooglePickerSpreadsheet) => Promise<void> | void;
+  onCreate: () => Promise<GooglePickerSpreadsheet> | GooglePickerSpreadsheet;
+  onPickDriveSpreadsheet?: () =>
+    | Promise<GooglePickerSpreadsheet>
+    | GooglePickerSpreadsheet;
   onSaveGoogleClientId?: (clientId: string) => Promise<void> | void;
   onClearGoogleClientId?: () => Promise<void> | void;
   onHealthCheck?: (spreadsheetId: string) => Promise<SpreadsheetHealthCheck> | SpreadsheetHealthCheck;
@@ -32,7 +32,7 @@ export function SpreadsheetSetup({
   isDeploymentGoogleOAuthConfigured = false,
   onConnect,
   onCreate,
-  onListDriveSpreadsheets,
+  onPickDriveSpreadsheet,
   onSaveGoogleClientId,
   onClearGoogleClientId,
   onHealthCheck,
@@ -44,9 +44,6 @@ export function SpreadsheetSetup({
   const [isCreating, setIsCreating] = useState(false);
   const [isLoadingDriveSheets, setIsLoadingDriveSheets] = useState(false);
   const [createStatus, setCreateStatus] = useState("");
-  const [driveSpreadsheets, setDriveSpreadsheets] = useState<
-    GoogleDriveSpreadsheet[]
-  >([]);
   const canCreateSpreadsheet = isGoogleOAuthConfigured ?? true;
   const canChooseSpreadsheet = isGoogleOAuthConfigured ?? true;
   const connectedSpreadsheetId = normalizeGoogleSpreadsheetId(spreadsheetId);
@@ -76,7 +73,7 @@ export function SpreadsheetSetup({
     setInputGoogleClientId("");
   }
 
-  async function handleLoadDriveSpreadsheets() {
+  async function handlePickDriveSpreadsheet() {
     setError("");
     setCreateStatus("");
 
@@ -85,7 +82,7 @@ export function SpreadsheetSetup({
       return;
     }
 
-    if (!onListDriveSpreadsheets) {
+    if (!onPickDriveSpreadsheet) {
       setError("Google Drive selection is not available.");
       return;
     }
@@ -93,34 +90,19 @@ export function SpreadsheetSetup({
     try {
       setIsLoadingDriveSheets(true);
       setCreateStatus("Waiting for Google sign-in...");
-      setDriveSpreadsheets(await onListDriveSpreadsheets());
-      setCreateStatus("");
-    } catch (loadError) {
-      setCreateStatus("");
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "Could not load Google Sheets from Drive.",
-      );
-    } finally {
-      setIsLoadingDriveSheets(false);
-    }
-  }
-
-  async function handleSelectDriveSpreadsheet(spreadsheet: GoogleDriveSpreadsheet) {
-    setError("");
-    setCreateStatus("");
-
-    try {
-      await onConnect(spreadsheet);
-      setHealthCheck(buildUncheckedSpreadsheetHealth(spreadsheet.id));
+      const pickedSpreadsheet = await onPickDriveSpreadsheet();
+      await onConnect(pickedSpreadsheet);
+      setHealthCheck(buildUncheckedSpreadsheetHealth(pickedSpreadsheet.id));
       setCreateStatus("Google Sheet connected.");
     } catch (connectError) {
+      setCreateStatus("");
       setError(
         connectError instanceof Error
           ? connectError.message
-          : "Could not connect Google Sheet.",
+          : "Could not choose Google Sheet from Drive.",
       );
+    } finally {
+      setIsLoadingDriveSheets(false);
     }
   }
 
@@ -253,10 +235,10 @@ export function SpreadsheetSetup({
           <div className="button-row">
             <button
               type="button"
-              onClick={handleLoadDriveSpreadsheets}
+              onClick={handlePickDriveSpreadsheet}
               disabled={isLoadingDriveSheets || !canChooseSpreadsheet}
             >
-              {isLoadingDriveSheets ? "Loading Drive..." : "Choose from Drive"}
+              {isLoadingDriveSheets ? "Opening Picker..." : "Choose from Drive"}
             </button>
             <button
               type="button"
@@ -267,22 +249,6 @@ export function SpreadsheetSetup({
               {isCreating ? "Creating..." : "Create new sheet"}
             </button>
           </div>
-          {driveSpreadsheets.length > 0 ? (
-            <ul className="drive-sheet-list" aria-label="Google Drive sheets">
-              {driveSpreadsheets.map((spreadsheet) => (
-                <li key={spreadsheet.id}>
-                  <button
-                    type="button"
-                    className="drive-sheet-option"
-                    onClick={() => handleSelectDriveSpreadsheet(spreadsheet)}
-                  >
-                    <span>{spreadsheet.name}</span>
-                    <small>{formatSpreadsheetModifiedTime(spreadsheet.modifiedTime)}</small>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
         </div>
 
         <div className="setup-card health-card">
@@ -334,21 +300,4 @@ function formatHealthStatus(status: SpreadsheetHealthCheck["status"]): string {
   }
 
   return "Not connected";
-}
-function formatSpreadsheetModifiedTime(modifiedTime?: string): string {
-  if (!modifiedTime) {
-    return "Google Sheet";
-  }
-
-  const parsedDate = new Date(modifiedTime);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return "Google Sheet";
-  }
-
-  const formattedDate = new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-  }).format(parsedDate);
-
-  return `Modified ${formattedDate}`;
 }

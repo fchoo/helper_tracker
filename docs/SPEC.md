@@ -31,7 +31,7 @@ Recommended MVP stack:
 - Styling: CSS Modules or plain CSS with CSS custom properties
 - Routing: React Router, or a lightweight internal tab router if only four screens exist
 - Source of truth: Google Sheets through Google Sheets API v4
-- Authentication: Google Identity Services OAuth in the browser, with Google Drive metadata access used only to choose an existing Sheet
+- Authentication: Google Identity Services OAuth in the browser, with Google Picker used to choose an existing Google Sheets workbook from Drive
 - Local persistence: browser storage for the selected spreadsheet ID/link, selected pay month, and last synced records as a temporary cache only
 - Validation: Zod
 - Testing: Vitest + React Testing Library + Playwright
@@ -85,6 +85,7 @@ src/
   integrations/
     google/
       auth.ts                     # Google Identity Services OAuth
+      pickerClient.ts             # Google Picker workbook selection
       sheetsClient.ts             # Google Sheets API wrapper
     singapore/
       publicHolidays.ts           # Singapore public holiday import adapter

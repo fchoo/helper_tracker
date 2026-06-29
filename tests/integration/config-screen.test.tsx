@@ -93,13 +93,13 @@ describe("ConfigScreen", () => {
 
   it("connects sheet setup when spreadsheet handlers are provided", async () => {
     const onConnectSpreadsheet = vi.fn().mockResolvedValue(undefined);
-    const onListDriveSpreadsheets = vi.fn().mockResolvedValue([
+    const onPickDriveSpreadsheet = vi.fn().mockResolvedValue(
       {
         id: "sheet_next",
         name: "Next helper tracker",
         webViewLink: "https://docs.google.com/spreadsheets/d/sheet_next/edit",
       },
-    ]);
+    );
 
     render(
       <ConfigScreen
@@ -113,7 +113,7 @@ describe("ConfigScreen", () => {
           id: "sheet_created",
           name: "Created helper tracker",
         })}
-        onListDriveSpreadsheets={onListDriveSpreadsheets}
+        onPickDriveSpreadsheet={onPickDriveSpreadsheet}
       />,
     );
 
@@ -124,10 +124,8 @@ describe("ConfigScreen", () => {
     );
 
     await userEvent.click(screen.getByRole("button", { name: "Choose from Drive" }));
-    await userEvent.click(
-      await screen.findByRole("button", { name: /Next helper tracker/ }),
-    );
 
+    expect(onPickDriveSpreadsheet).toHaveBeenCalledTimes(1);
     expect(onConnectSpreadsheet).toHaveBeenCalledWith({
       id: "sheet_next",
       name: "Next helper tracker",

@@ -17,6 +17,52 @@ test.beforeEach(async ({ page }) => {
       `,
     });
   });
+  await page.route("https://apis.google.com/js/api.js", async (route) => {
+    await route.fulfill({
+      contentType: "application/javascript",
+      body: `
+        window.gapi = {
+          load: (_api, callback) => {
+            window.google = window.google || {};
+            window.google.picker = {
+              Action: { CANCEL: "cancel", PICKED: "picked" },
+              PickerBuilder: function PickerBuilder() {
+                this.setDeveloperKey = () => this;
+                this.setAppId = () => this;
+                this.setOAuthToken = () => this;
+                this.addView = () => this;
+                this.setCallback = (callback) => {
+                  this.callback = callback;
+                  return this;
+                };
+                this.build = () => ({
+                  setVisible: () => {
+                    this.callback({
+                      action: "picked",
+                      docs: [{
+                        id: "sheet_e2e",
+                        name: "Domestic Helper Tracker E2E",
+                        url: "https://docs.google.com/spreadsheets/d/sheet_e2e/edit",
+                      }],
+                    });
+                  },
+                });
+              },
+              View: function View(viewId) {
+                window.__pickerViewId = viewId;
+                this.setMimeTypes = (mimeTypes) => {
+                  window.__pickerMimeTypes = mimeTypes;
+                  return this;
+                };
+              },
+              ViewId: { DOCS: "docs", SPREADSHEETS: "spreadsheets" },
+            };
+            callback();
+          },
+        };
+      `,
+    });
+  });
   await page.addInitScript(() => {
     localStorage.clear();
   });
@@ -27,20 +73,6 @@ test.beforeEach(async ({ page }) => {
         sheets: requiredSheets.map((title, index) => ({
           properties: { title, sheetId: index + 1 },
         })),
-      },
-    });
-  });
-  await page.route("https://www.googleapis.com/drive/v3/files?**", async (route) => {
-    await route.fulfill({
-      json: {
-        files: [
-          {
-            id: "sheet_e2e",
-            name: "Domestic Helper Tracker E2E",
-            webViewLink: "https://docs.google.com/spreadsheets/d/sheet_e2e/edit",
-            modifiedTime: "2026-06-29T10:00:00.000Z",
-          },
-        ],
       },
     });
   });
@@ -71,8 +103,13 @@ test("tracks a monthly helper payout from setup through salary review", async ({
     .fill("1234567890-e2e.apps.googleusercontent.com");
   await page.getByRole("button", { name: "Save OAuth ID" }).click();
   await page.getByRole("button", { name: "Choose from Drive" }).click();
-  await page.getByRole("button", { name: /Domestic Helper Tracker E2E/ }).click();
   await expect(page.getByText("Connected to sheet_e2e")).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => window.__pickerViewId))
+    .toBe("spreadsheets");
+  await expect
+    .poll(() => page.evaluate(() => window.__pickerMimeTypes))
+    .toBe("application/vnd.google-apps.spreadsheet");
   await page.getByRole("button", { name: "Run health check" }).click();
   await expect(page.getByText("Schema healthy")).toBeVisible();
 

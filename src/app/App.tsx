@@ -46,9 +46,10 @@ import {
   type AppGoogleTokenClient,
 } from "../integrations/google/auth";
 import {
-  GoogleDriveClient,
-  type GoogleDriveSpreadsheet,
-} from "../integrations/google/driveClient";
+  pickGoogleSpreadsheet,
+  type GooglePickerConfig,
+  type GooglePickerSpreadsheet,
+} from "../integrations/google/pickerClient";
 import { GoogleSheetsClient } from "../integrations/google/sheetsClient";
 import {
   buildEnsureSchemaRequests,
@@ -71,25 +72,16 @@ type GoogleSheetsAppClient = Pick<
   | "getValues"
   | "updateValues"
 >;
-type GoogleDriveAppClient = Pick<
-  GoogleDriveClient,
-  "listSpreadsheets"
->;
-
 function createDefaultGoogleSheetsClient(options: {
   accessToken: string;
 }): GoogleSheetsAppClient {
   return new GoogleSheetsClient(options);
 }
 
-function createDefaultGoogleDriveClient(options: {
-  accessToken: string;
-}): GoogleDriveAppClient {
-  return new GoogleDriveClient(options);
-}
-
 export type AppProps = {
   googleClientId?: string;
+  googlePickerDeveloperKey?: string;
+  googlePickerAppId?: string;
   createGoogleTokenClient?: (options: {
     clientId: string;
     scope?: string;
@@ -97,16 +89,18 @@ export type AppProps = {
   createGoogleSheetsClient?: (options: {
     accessToken: string;
   }) => GoogleSheetsAppClient;
-  createGoogleDriveClient?: (options: {
-    accessToken: string;
-  }) => GoogleDriveAppClient;
+  pickGoogleSpreadsheet?: (
+    options: GooglePickerConfig & { accessToken: string },
+  ) => Promise<GooglePickerSpreadsheet>;
 };
 
 export function App({
   googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID,
+  googlePickerDeveloperKey = import.meta.env.VITE_GOOGLE_PICKER_API_KEY,
+  googlePickerAppId = import.meta.env.VITE_GOOGLE_PICKER_APP_ID,
   createGoogleTokenClient = createDefaultGoogleTokenClient,
   createGoogleSheetsClient = createDefaultGoogleSheetsClient,
-  createGoogleDriveClient = createDefaultGoogleDriveClient,
+  pickGoogleSpreadsheet: pickGoogleSpreadsheetFromDrive = pickGoogleSpreadsheet,
 }: AppProps = {}) {
   const cachedPreferences = useMemo(() => getCachedAppPreferences(), []);
   const cachedSheetRecords = useMemo(
@@ -310,7 +304,7 @@ export function App({
     }
   }
 
-  async function handleConnectSpreadsheet(nextSpreadsheet: GoogleDriveSpreadsheet) {
+  async function handleConnectSpreadsheet(nextSpreadsheet: GooglePickerSpreadsheet) {
     const normalizedSpreadsheetId = normalizeGoogleSpreadsheetId(nextSpreadsheet.id);
 
     if (!normalizedSpreadsheetId) {
@@ -346,7 +340,7 @@ export function App({
     cachePreferences({ googleClientId: undefined });
   }
 
-  async function handleCreateSpreadsheet(): Promise<GoogleDriveSpreadsheet> {
+  async function handleCreateSpreadsheet(): Promise<GooglePickerSpreadsheet> {
     if (!activeGoogleClientId) {
       throw new Error("Add a Google OAuth Client ID before creating an online Google Sheet.");
     }
@@ -387,9 +381,13 @@ export function App({
     };
   }
 
-  async function handleListDriveSpreadsheets(): Promise<GoogleDriveSpreadsheet[]> {
+  async function handlePickDriveSpreadsheet(): Promise<GooglePickerSpreadsheet> {
     if (!activeGoogleClientId) {
       throw new Error("Add a Google OAuth Client ID before choosing from Google Drive.");
+    }
+
+    if (!googlePickerDeveloperKey) {
+      throw new Error("Add a Google Picker API key before choosing from Google Drive.");
     }
 
     const tokenClient = createGoogleTokenClient({
@@ -397,8 +395,12 @@ export function App({
       scope: GOOGLE_DRIVE_METADATA_SCOPE,
     });
     const accessToken = await tokenClient.requestToken({ prompt: "consent" });
-    const driveClient = createGoogleDriveClient({ accessToken });
-    return driveClient.listSpreadsheets({ pageSize: 20 });
+    const pickedSpreadsheet = await pickGoogleSpreadsheetFromDrive({
+      accessToken,
+      appId: googlePickerAppId,
+      developerKey: googlePickerDeveloperKey,
+    });
+    return pickedSpreadsheet;
   }
 
   async function handleCheckSpreadsheetHealth(targetSpreadsheetId: string) {
@@ -782,7 +784,7 @@ export function App({
           onAddSalaryConfig={handleAddSalaryConfig}
           onConnectSpreadsheet={handleConnectSpreadsheet}
           onCreateSpreadsheet={handleCreateSpreadsheet}
-          onListDriveSpreadsheets={handleListDriveSpreadsheets}
+          onPickDriveSpreadsheet={handlePickDriveSpreadsheet}
           onSaveGoogleClientId={handleSaveGoogleClientId}
           onClearGoogleClientId={handleClearGoogleClientId}
           onCheckSpreadsheetHealth={handleCheckSpreadsheetHealth}

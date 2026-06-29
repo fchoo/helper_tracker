@@ -283,17 +283,13 @@ describe("App", () => {
     const user = userEvent.setup();
     const requestToken = vi.fn().mockResolvedValue("token_123");
     const createGoogleTokenClient = vi.fn().mockReturnValue({ requestToken });
-    const listSpreadsheets = vi.fn().mockResolvedValue([
+    const pickGoogleSpreadsheet = vi.fn().mockResolvedValue(
       {
         id: "sheet_from_drive",
         name: "Domestic Helper Tracker",
         webViewLink: "https://docs.google.com/spreadsheets/d/sheet_from_drive/edit",
-        modifiedTime: "2026-06-29T10:00:00.000Z",
       },
-    ]);
-    const createGoogleDriveClient = vi.fn().mockReturnValue({
-      listSpreadsheets,
-    });
+    );
     const sheetsClient = createMockGoogleSheetsClient({
       "Config!A:I": [
         requiredHeaderRows.Config,
@@ -315,17 +311,16 @@ describe("App", () => {
     render(
       <App
         googleClientId="1234567890-valid.apps.googleusercontent.com"
+        googlePickerDeveloperKey="picker_key"
+        googlePickerAppId="1234567890"
         createGoogleTokenClient={createGoogleTokenClient}
-        createGoogleDriveClient={createGoogleDriveClient}
+        pickGoogleSpreadsheet={pickGoogleSpreadsheet}
         createGoogleSheetsClient={createGoogleSheetsClient}
       />,
     );
 
     await user.click(screen.getByRole("button", { name: "Config" }));
     await user.click(screen.getByRole("button", { name: "Choose from Drive" }));
-    await user.click(
-      await screen.findByRole("button", { name: /Domestic Helper Tracker/ }),
-    );
 
     expect(createGoogleTokenClient).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -333,7 +328,11 @@ describe("App", () => {
         scope: GOOGLE_DRIVE_METADATA_SCOPE,
       }),
     );
-    expect(listSpreadsheets).toHaveBeenCalledWith({ pageSize: 20 });
+    expect(pickGoogleSpreadsheet).toHaveBeenCalledWith({
+      accessToken: "token_123",
+      appId: "1234567890",
+      developerKey: "picker_key",
+    });
     expect(
       await screen.findByText("Connected to sheet_from_drive"),
     ).toBeInTheDocument();

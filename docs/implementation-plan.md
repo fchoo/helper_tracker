@@ -5,7 +5,7 @@ Build the MVP as a responsive React/TypeScript PWA backed by Google Sheets. The 
 
 ## Architecture Decisions
 - Google Sheets is authoritative. The app reads and writes raw records to Sheets, while derived monthly summaries can be regenerated.
-- Browser-only Google OAuth is used. The repo stores only a public OAuth client ID through `.env.local`; no secrets are committed.
+- Browser-only Google OAuth is used. The repo stores only public browser config through `.env.local`; no secrets are committed.
 - The default deployment shape is static hosting only: no custom backend server, no app server, and no database server beyond Google Sheets.
 - Domain calculations are pure TypeScript functions. UI, Sheets API calls, and persistence are kept outside calculation code.
 - Split advance deductions are first-class records. The `Advance_Deductions` sheet drives monthly deductions.
@@ -34,7 +34,7 @@ Project scaffold, env config, and static hosting target
 **Acceptance criteria:**
 - [ ] `npm run dev -- --host 0.0.0.0` starts the app.
 - [ ] `npm run build`, `npm run lint`, `npm run typecheck`, and `npm run test -- --run` exist.
-- [ ] `.env.example` documents the Google OAuth client ID variable.
+- [ ] `.env.example` documents the Google OAuth client ID and Google Picker public config variables.
 - [ ] `README.md` explains that the app needs only static hosting, but still needs a stable HTTPS origin for PWA/OAuth.
 
 **Verification:**
@@ -135,7 +135,7 @@ Project scaffold, env config, and static hosting target
 **Description:** Add logic to create or connect a spreadsheet and ensure required sheets and headers exist.
 
 **Acceptance criteria:**
-- [ ] User can choose an existing spreadsheet from Google Drive or create a new spreadsheet when authorized.
+- [ ] User can choose an existing spreadsheet through Google's Picker dialog or create a new spreadsheet when authorized.
 - [ ] Required sheets are created when absent.
 - [ ] Headers match the spec and are not duplicated.
 

@@ -4,49 +4,48 @@ import { describe, expect, it, vi } from "vitest";
 import { SpreadsheetSetup } from "../../src/features/config/SpreadsheetSetup";
 
 describe("SpreadsheetSetup", () => {
-  it("connects an existing spreadsheet from Google Drive", async () => {
+  it("opens Google Picker to connect an existing spreadsheet from Drive", async () => {
     const onConnect = vi.fn().mockResolvedValue(undefined);
-    const onListDriveSpreadsheets = vi.fn().mockResolvedValue([
+    const onPickDriveSpreadsheet = vi.fn().mockResolvedValue(
       {
         id: "sheet_123",
         name: "Domestic Helper Tracker",
         webViewLink: "https://docs.google.com/spreadsheets/d/sheet_123/edit",
-        modifiedTime: "2026-06-29T10:00:00.000Z",
       },
-    ]);
+    );
 
     render(
       <SpreadsheetSetup
         isGoogleOAuthConfigured
         onConnect={onConnect}
         onCreate={vi.fn()}
-        onListDriveSpreadsheets={onListDriveSpreadsheets}
+        onPickDriveSpreadsheet={onPickDriveSpreadsheet}
       />,
     );
 
     await userEvent.click(screen.getByRole("button", { name: "Choose from Drive" }));
-    await userEvent.click(
-      await screen.findByRole("button", { name: /Domestic Helper Tracker/ }),
-    );
 
-    expect(onListDriveSpreadsheets).toHaveBeenCalledTimes(1);
+    expect(onPickDriveSpreadsheet).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("list", { name: "Google Drive sheets" })).not.toBeInTheDocument();
     expect(onConnect).toHaveBeenCalledWith({
       id: "sheet_123",
       name: "Domestic Helper Tracker",
       webViewLink: "https://docs.google.com/spreadsheets/d/sheet_123/edit",
-      modifiedTime: "2026-06-29T10:00:00.000Z",
     });
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Google Sheet connected.",
+    );
   });
 
   it("blocks Drive selection until Google OAuth is configured", async () => {
-    const onListDriveSpreadsheets = vi.fn();
+    const onPickDriveSpreadsheet = vi.fn();
 
     render(
       <SpreadsheetSetup
         isGoogleOAuthConfigured={false}
         onConnect={vi.fn()}
         onCreate={vi.fn()}
-        onListDriveSpreadsheets={onListDriveSpreadsheets}
+        onPickDriveSpreadsheet={onPickDriveSpreadsheet}
       />,
     );
 

@@ -497,41 +497,6 @@ small {
   padding: 0 var(--space-4);
 }
 
-.drive-sheet-list {
-  display: grid;
-  gap: var(--space-2);
-  margin: 0;
-  max-height: 280px;
-  overflow: auto;
-  padding: 0;
-  list-style: none;
-}
-
-.drive-sheet-option {
-  display: grid;
-  width: 100%;
-  height: auto;
-  justify-items: start;
-  gap: 3px;
-  border-color: var(--border);
-  background: #ffffff;
-  color: var(--text);
-  padding: var(--space-3);
-  text-align: left;
-}
-
-.drive-sheet-option:hover {
-  border-color: var(--primary);
-  background: var(--primary-soft);
-  color: var(--primary-hover);
-}
-
-.drive-sheet-option small {
-  color: var(--text-soft);
-  font-size: 0.82rem;
-  font-weight: 700;
-}
-
 .health-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));

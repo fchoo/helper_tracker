@@ -2,7 +2,7 @@ import { FormEvent, useState } from "react";
 import { PublicHolidayPanel } from "../calendar/PublicHolidayPanel";
 import type { NewPublicHolidayInput, PublicHoliday } from "../calendar/types";
 import type { SalaryConfig } from "./types";
-import type { GoogleDriveSpreadsheet } from "../../integrations/google/driveClient";
+import type { GooglePickerSpreadsheet } from "../../integrations/google/pickerClient";
 import { parseMoneyInput } from "../../lib/money";
 import { SalaryPlanHistory } from "./SalaryPlanHistory";
 import { SpreadsheetSetup } from "./SpreadsheetSetup";
@@ -20,11 +20,11 @@ export type ConfigScreenProps = {
   isGoogleOAuthConfigured?: boolean;
   isDeploymentGoogleOAuthConfigured?: boolean;
   onAddSalaryConfig: (config: NewSalaryConfigInput) => Promise<void> | void;
-  onConnectSpreadsheet?: (spreadsheet: GoogleDriveSpreadsheet) => Promise<void> | void;
-  onCreateSpreadsheet?: () => Promise<GoogleDriveSpreadsheet> | GoogleDriveSpreadsheet;
-  onListDriveSpreadsheets?: () =>
-    | Promise<GoogleDriveSpreadsheet[]>
-    | GoogleDriveSpreadsheet[];
+  onConnectSpreadsheet?: (spreadsheet: GooglePickerSpreadsheet) => Promise<void> | void;
+  onCreateSpreadsheet?: () => Promise<GooglePickerSpreadsheet> | GooglePickerSpreadsheet;
+  onPickDriveSpreadsheet?: () =>
+    | Promise<GooglePickerSpreadsheet>
+    | GooglePickerSpreadsheet;
   onSaveGoogleClientId?: (clientId: string) => Promise<void> | void;
   onClearGoogleClientId?: () => Promise<void> | void;
   onCheckSpreadsheetHealth?: (spreadsheetId: string) => Promise<SpreadsheetHealthCheck> | SpreadsheetHealthCheck;
@@ -50,7 +50,7 @@ export function ConfigScreen({
   onAddSalaryConfig,
   onConnectSpreadsheet,
   onCreateSpreadsheet,
-  onListDriveSpreadsheets,
+  onPickDriveSpreadsheet,
   onSaveGoogleClientId,
   onClearGoogleClientId,
   onCheckSpreadsheetHealth,
@@ -76,7 +76,7 @@ export function ConfigScreen({
           isDeploymentGoogleOAuthConfigured={isDeploymentGoogleOAuthConfigured}
           onConnect={onConnectSpreadsheet}
           onCreate={onCreateSpreadsheet}
-          onListDriveSpreadsheets={onListDriveSpreadsheets}
+          onPickDriveSpreadsheet={onPickDriveSpreadsheet}
           onSaveGoogleClientId={onSaveGoogleClientId}
           onClearGoogleClientId={onClearGoogleClientId}
           onHealthCheck={onCheckSpreadsheetHealth}
