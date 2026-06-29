@@ -166,24 +166,26 @@ export function PublicHolidayPanel({
               <strong>{holiday.name}</strong>
               <span>{holiday.date}</span>
               {holiday.notes ? <span>{holiday.notes}</span> : null}
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => handleEdit(holiday)}
-                aria-label={`Edit ${holiday.name}`}
-                disabled={Boolean(deletingHolidayId)}
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => void handleDelete(holiday.id)}
-                aria-label={`Delete ${holiday.name}`}
-                disabled={Boolean(deletingHolidayId)}
-              >
-                {deletingHolidayId === holiday.id ? "Deleting..." : "Delete"}
-              </button>
+              <div className="record-actions">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => handleEdit(holiday)}
+                  aria-label={`Edit ${holiday.name}`}
+                  disabled={Boolean(deletingHolidayId)}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => void handleDelete(holiday.id)}
+                  aria-label={`Delete ${holiday.name}`}
+                  disabled={Boolean(deletingHolidayId)}
+                >
+                  {deletingHolidayId === holiday.id ? "Deleting..." : "Delete"}
+                </button>
+              </div>
             </li>
           ))}
         </ul>

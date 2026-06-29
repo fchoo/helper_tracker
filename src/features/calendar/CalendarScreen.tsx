@@ -448,14 +448,16 @@ function TimeRecordList({
               </span>
               {record.notes ? <span>{record.notes}</span> : null}
               {onEditTimeRecord ? (
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => onEditTimeRecord(record)}
-                  aria-label="Edit time record"
-                >
-                  Edit
-                </button>
+                <div className="record-actions">
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => onEditTimeRecord(record)}
+                    aria-label="Edit time record"
+                  >
+                    Edit
+                  </button>
+                </div>
               ) : null}
             </li>
           ))}

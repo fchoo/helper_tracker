@@ -53,17 +53,25 @@ export function ConfigScreen({
   const [activeConfigSection, setActiveConfigSection] =
     useState<ConfigSectionId>("sheet");
   const [isSalaryDialogOpen, setIsSalaryDialogOpen] = useState(false);
-  const activeSection = configSections.find(
-    (section) => section.id === activeConfigSection,
-  );
-
   return (
     <section aria-labelledby="config-title" className="screen">
-      <header className="screen-header">
-        <div>
-          <h2 id="config-title">Configuration</h2>
-          <p>{activeSection?.description}</p>
-        </div>
+      <h2 id="config-title" className="visually-hidden">
+        Configuration
+      </h2>
+      <div className="config-page-toolbar">
+        <nav className="config-subnav" aria-label="Configuration pages">
+          {configSections.map((section) => (
+            <button
+              type="button"
+              key={section.id}
+              className={activeConfigSection === section.id ? "active" : ""}
+              aria-current={activeConfigSection === section.id ? "page" : undefined}
+              onClick={() => setActiveConfigSection(section.id)}
+            >
+              {section.label}
+            </button>
+          ))}
+        </nav>
         {activeConfigSection === "salary" ? (
           <button
             type="button"
@@ -73,20 +81,7 @@ export function ConfigScreen({
             Add salary plan
           </button>
         ) : null}
-      </header>
-      <nav className="config-subnav" aria-label="Configuration pages">
-        {configSections.map((section) => (
-          <button
-            type="button"
-            key={section.id}
-            className={activeConfigSection === section.id ? "active" : ""}
-            aria-current={activeConfigSection === section.id ? "page" : undefined}
-            onClick={() => setActiveConfigSection(section.id)}
-          >
-            {section.label}
-          </button>
-        ))}
-      </nav>
+      </div>
       {activeConfigSection === "sheet" &&
       onConnectSpreadsheet &&
       onCreateSpreadsheet ? (
@@ -131,22 +126,18 @@ type ConfigSectionId = "sheet" | "salary" | "holidays";
 const configSections: Array<{
   id: ConfigSectionId;
   label: string;
-  description: string;
 }> = [
   {
     id: "sheet",
     label: "Google Sheet",
-    description: "Connect the payroll workbook.",
   },
   {
     id: "salary",
     label: "Salary plan",
-    description: "Review salary plan history.",
   },
   {
     id: "holidays",
     label: "Public holidays",
-    description: "Manage public holiday dates.",
   },
 ];
 

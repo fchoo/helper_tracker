@@ -134,7 +134,9 @@ describe("App", () => {
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Config" }));
-    expect(screen.getByRole("heading", { name: "Configuration" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("navigation", { name: "Configuration pages" }),
+    ).toBeInTheDocument();
   });
 
   it("shares the pay month across screens", async () => {
