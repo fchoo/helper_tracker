@@ -127,7 +127,7 @@ test("tracks a monthly helper payout from setup through salary review", async ({
   await salaryDialog.getByLabel("Pay date day").fill("26");
   await salaryDialog.getByLabel("Salary notes").fill("Current contract");
   await salaryDialog.getByRole("button", { name: "Add salary plan" }).click();
-  await expect(page.getByText("SGD 900.00")).toBeVisible();
+  await expect(page.getByText("$900.00")).toBeVisible();
   await page.getByRole("button", { name: "Public holidays" }).click();
   await page.getByRole("button", { name: "Add public holiday" }).click();
   let holidayDialog = page.getByRole("dialog", { name: "Add public holiday" });
@@ -153,7 +153,7 @@ test("tracks a monthly helper payout from setup through salary review", async ({
   await page.getByRole("button", { name: "Save advance" }).click();
   await expect(page.getByRole("status")).toContainText("Advance saved.");
   await expect(
-    page.getByText("Deducted in pay month 2026-08: SGD 100.00"),
+    page.getByText("Deducted in pay month 2026-08: $100.00"),
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Time & Calendar" }).click();
@@ -184,18 +184,18 @@ test("tracks a monthly helper payout from setup through salary review", async ({
   await expect(sundayHoliday).toContainText("Worked Sunday");
 
   await page.getByRole("button", { name: "Salary" }).click();
-  await expect(summaryItem(page, "Base salary")).toContainText("SGD 900.00");
+  await expect(summaryItem(page, "Base salary")).toContainText("$900.00");
   await expect(summaryItem(page, "Worked Sundays")).toContainText("1 days");
-  await expect(summaryItem(page, "Worked Sundays")).toContainText("SGD 34.62");
-  await expect(summaryItem(page, "Extra PH pay")).toContainText("SGD 34.62");
-  await expect(summaryItem(page, "Advance deductions")).toContainText("SGD 100.00");
-  await expect(page.getByLabel("Pay decision")).toContainText("SGD 869.24");
+  await expect(summaryItem(page, "Worked Sundays")).toContainText("$34.62");
+  await expect(summaryItem(page, "Extra PH pay")).toContainText("$34.62");
+  await expect(summaryItem(page, "Advance deductions")).toContainText("$100.00");
+  await expect(page.getByLabel("Pay decision")).toContainText("$869.24");
   await expect(page.getByText("Final payout")).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Salary plan history" }),
   ).not.toBeVisible();
   await expect(page.getByLabel("Total advance deducted this pay month")).toContainText(
-    "SGD 100.00",
+    "$100.00",
   );
   await expect(page.getByText("From School expense")).toBeVisible();
   await expect(

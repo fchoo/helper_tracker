@@ -18,12 +18,15 @@ export type ConfigScreenProps = {
   spreadsheetUrl?: string;
   isGoogleOAuthConfigured?: boolean;
   onAddSalaryConfig: (config: NewSalaryConfigInput) => Promise<void> | void;
+  onUpdateSalaryConfig?: (
+    configId: string,
+    config: NewSalaryConfigInput,
+  ) => Promise<void> | void;
   onConnectSpreadsheet?: (spreadsheet: GooglePickerSpreadsheet) => Promise<void> | void;
   onCreateSpreadsheet?: () => Promise<GooglePickerSpreadsheet> | GooglePickerSpreadsheet;
   onPickDriveSpreadsheet?: () =>
     | Promise<GooglePickerSpreadsheet>
     | GooglePickerSpreadsheet;
-  onSyncSpreadsheet?: () => Promise<void> | void;
   onImportPublicHolidays?: (year: number) => Promise<PublicHoliday[]>;
   onAddPublicHoliday?: (
     holiday: NewPublicHolidayInput,
@@ -46,7 +49,7 @@ export function ConfigScreen({
   onConnectSpreadsheet,
   onCreateSpreadsheet,
   onPickDriveSpreadsheet,
-  onSyncSpreadsheet,
+  onUpdateSalaryConfig,
   onImportPublicHolidays,
   onAddPublicHoliday,
   onUpdatePublicHoliday,
@@ -54,7 +57,7 @@ export function ConfigScreen({
 }: ConfigScreenProps) {
   const [activeConfigSection, setActiveConfigSection] =
     useState<ConfigSectionId>("sheet");
-  const [isSalaryDialogOpen, setIsSalaryDialogOpen] = useState(false);
+  const [salaryDialog, setSalaryDialog] = useState<SalaryDialogState>(null);
   return (
     <section aria-labelledby="config-title" className="screen">
       <h2 id="config-title" className="visually-hidden">
@@ -78,7 +81,7 @@ export function ConfigScreen({
           <button
             type="button"
             className="mobile-floating-action"
-            onClick={() => setIsSalaryDialogOpen(true)}
+            onClick={() => setSalaryDialog({ mode: "add" })}
           >
             Add salary plan
           </button>
@@ -95,11 +98,17 @@ export function ConfigScreen({
           onConnect={onConnectSpreadsheet}
           onCreate={onCreateSpreadsheet}
           onPickDriveSpreadsheet={onPickDriveSpreadsheet}
-          onSync={onSyncSpreadsheet}
         />
       ) : null}
       {activeConfigSection === "salary" ? (
-        <SalaryConfigList salaryConfigs={salaryConfigs} />
+        <SalaryConfigList
+          salaryConfigs={salaryConfigs}
+          onEditSalaryConfig={
+            onUpdateSalaryConfig
+              ? (config) => setSalaryDialog({ mode: "edit", config })
+              : undefined
+          }
+        />
       ) : null}
       {activeConfigSection === "holidays" ? (
         <PublicHolidayPanel
@@ -111,12 +120,24 @@ export function ConfigScreen({
           onDeletePublicHoliday={onDeletePublicHoliday}
         />
       ) : null}
-      {isSalaryDialogOpen ? (
+      {salaryDialog ? (
         <SalaryConfigDialog
-          onClose={() => setIsSalaryDialogOpen(false)}
+          mode={salaryDialog.mode}
+          config={salaryDialog.mode === "edit" ? salaryDialog.config : null}
+          onClose={() => setSalaryDialog(null)}
           onSubmit={async (config) => {
+            if (
+              salaryDialog.mode === "edit" &&
+              salaryDialog.config &&
+              onUpdateSalaryConfig
+            ) {
+              await onUpdateSalaryConfig(salaryDialog.config.id, config);
+              setSalaryDialog(null);
+              return;
+            }
+
             await onAddSalaryConfig(config);
-            setIsSalaryDialogOpen(false);
+            setSalaryDialog(null);
           }}
         />
       ) : null}
@@ -125,6 +146,11 @@ export function ConfigScreen({
 }
 
 type ConfigSectionId = "sheet" | "salary" | "holidays";
+
+type SalaryDialogState =
+  | { mode: "add"; config?: undefined }
+  | { mode: "edit"; config: SalaryConfig }
+  | null;
 
 const configSections: Array<{
   id: ConfigSectionId;
@@ -145,13 +171,18 @@ const configSections: Array<{
 ];
 
 function SalaryConfigDialog({
+  mode,
+  config,
   onClose,
   onSubmit,
 }: {
+  mode: "add" | "edit";
+  config: SalaryConfig | null;
   onClose: () => void;
   onSubmit: ConfigScreenProps["onAddSalaryConfig"];
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const title = mode === "edit" ? "Edit salary plan" : "Add salary plan";
 
   useEffect(() => {
     dialogRef.current?.focus();
@@ -179,7 +210,7 @@ function SalaryConfigDialog({
       >
         <div className="modal-header">
           <div>
-            <h3 id="salary-config-dialog-title">Add salary plan</h3>
+            <h3 id="salary-config-dialog-title">{title}</h3>
           </div>
           <button
             type="button"
@@ -190,23 +221,36 @@ function SalaryConfigDialog({
             X
           </button>
         </div>
-        <SalaryConfigForm onSubmit={onSubmit} />
+        <SalaryConfigForm mode={mode} config={config} onSubmit={onSubmit} />
       </div>
     </div>
   );
 }
 
 function SalaryConfigForm({
+  mode,
+  config,
   onSubmit,
 }: {
+  mode: "add" | "edit";
+  config: SalaryConfig | null;
   onSubmit: ConfigScreenProps["onAddSalaryConfig"];
 }) {
-  const [monthlySalary, setMonthlySalary] = useState("");
-  const [effectiveStartDate, setEffectiveStartDate] = useState("");
-  const [otDayDivisor, setOtDayDivisor] = useState("26");
-  const [payCycleStartDay, setPayCycleStartDay] = useState("1");
-  const [notes, setNotes] = useState("");
+  const [monthlySalary, setMonthlySalary] = useState(
+    config ? String(config.monthlySalary) : "",
+  );
+  const [effectiveStartDate, setEffectiveStartDate] = useState(
+    config?.effectiveStartDate ?? "",
+  );
+  const [otDayDivisor, setOtDayDivisor] = useState(
+    String(config?.otDayDivisor ?? 26),
+  );
+  const [payCycleStartDay, setPayCycleStartDay] = useState(
+    String(config?.payCycleStartDay ?? 1),
+  );
+  const [notes, setNotes] = useState(config?.notes ?? "");
   const [error, setError] = useState("");
+  const isEditing = mode === "edit";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -247,11 +291,13 @@ function SalaryConfigForm({
         notes: notes.trim(),
       });
 
-      setMonthlySalary("");
-      setEffectiveStartDate("");
-      setOtDayDivisor("26");
-      setPayCycleStartDay("1");
-      setNotes("");
+      if (!isEditing) {
+        setMonthlySalary("");
+        setEffectiveStartDate("");
+        setOtDayDivisor("26");
+        setPayCycleStartDay("1");
+        setNotes("");
+      }
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -306,15 +352,19 @@ function SalaryConfigForm({
         />
       </label>
       {error ? <p role="alert">{error}</p> : null}
-      <button type="submit">Add salary plan</button>
+      <button type="submit">
+        {isEditing ? "Save salary plan" : "Add salary plan"}
+      </button>
     </form>
   );
 }
 
 function SalaryConfigList({
   salaryConfigs,
+  onEditSalaryConfig,
 }: {
   salaryConfigs: SalaryConfig[];
+  onEditSalaryConfig?: (config: SalaryConfig) => void;
 }) {
   return (
     <section
@@ -330,6 +380,7 @@ function SalaryConfigList({
       <SalaryPlanHistory
         salaryConfigs={salaryConfigs}
         emptyMessage="No salary plans saved yet."
+        onEditSalaryConfig={onEditSalaryConfig}
       />
     </section>
   );

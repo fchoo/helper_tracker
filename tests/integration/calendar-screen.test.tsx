@@ -5,7 +5,7 @@ import { CalendarScreen } from "../../src/features/calendar/CalendarScreen";
 
 describe("CalendarScreen", () => {
   it("shows Sundays, public holidays, and time records for a pay cycle", () => {
-    render(
+    const { container } = render(
       <CalendarScreen
         selectedMonth="2026-08"
         payCycleStartDay={26}
@@ -41,9 +41,18 @@ describe("CalendarScreen", () => {
       />,
     );
 
-    expect(screen.getByText("National Day")).toBeInTheDocument();
-    expect(screen.getAllByText("Sunday").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Worked Sunday").length).toBeGreaterThan(0);
+    expect(screen.getByText("National Day")).toHaveClass(
+      "calendar-badge-holiday",
+    );
+    expect(screen.queryByText("Sunday")).not.toBeInTheDocument();
+    const workedSundayLabels = screen.getAllByText("Worked Sunday");
+    expect(workedSundayLabels.length).toBeGreaterThan(0);
+    expect(
+      workedSundayLabels.some((label) =>
+        label.classList.contains("calendar-badge-sunday-work"),
+      ),
+    ).toBe(true);
+    expect(container.querySelector(".calendar-badge-off-day")).toBeInTheDocument();
     expect(screen.getByText("Overlapping off day")).toBeInTheDocument();
     expect(screen.getByText("Jul 26")).toBeInTheDocument();
     expect(screen.queryByText("Aug 26")).not.toBeInTheDocument();

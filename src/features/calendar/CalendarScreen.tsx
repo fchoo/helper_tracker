@@ -133,7 +133,6 @@ export function CalendarScreen({
               const records = timeRecords.filter(
                 (record) => record.startDate <= date && record.endDate >= date,
               );
-              const isSunday = new Date(`${date}T00:00:00.000Z`).getUTCDay() === 0;
 
               return (
                 <article
@@ -142,12 +141,18 @@ export function CalendarScreen({
                   role="listitem"
                 >
                   <strong>{formatCalendarDayLabel(date)}</strong>
-                  {isSunday ? <span>Sunday</span> : null}
                   {holidays.map((holiday) => (
-                    <span key={holiday.id}>{holiday.name}</span>
+                    <span className="calendar-badge calendar-badge-holiday" key={holiday.id}>
+                      {holiday.name}
+                    </span>
                   ))}
                   {records.map((record) => (
-                    <span key={record.id}>{formatRecordType(record.type)}</span>
+                    <span
+                      className={`calendar-badge ${getRecordBadgeClassName(record.type)}`}
+                      key={record.id}
+                    >
+                      {formatRecordType(record.type)}
+                    </span>
                   ))}
                 </article>
               );
@@ -545,4 +550,16 @@ function formatCalendarDayLabel(date: string): string {
   const [, month, day] = date.split("-").map(Number);
 
   return `${monthNames[month - 1]} ${String(day).padStart(2, "0")}`;
+}
+
+function getRecordBadgeClassName(type: TimeRecord["type"]): string {
+  if (type === "SUNDAY_OT") {
+    return "calendar-badge-sunday-work";
+  }
+
+  if (type === "PUBLIC_HOLIDAY_WORK") {
+    return "calendar-badge-ph-pay";
+  }
+
+  return "calendar-badge-off-day";
 }

@@ -26,7 +26,7 @@ export function buildPublicHolidayUrl(limit = 500): string {
 }
 
 export async function fetchSingaporePublicHolidays(
-  year: number,
+  year: number | number[],
   fetchImpl: typeof fetch = fetch,
 ): Promise<PublicHoliday[]> {
   const response = await fetchImpl(buildPublicHolidayUrl());
@@ -43,8 +43,10 @@ export async function fetchSingaporePublicHolidays(
 
 export function normalizeDataGovHolidayRows(
   rows: DataGovHolidayRow[],
-  year?: number,
+  year?: number | number[],
 ): PublicHoliday[] {
+  const yearSet = Array.isArray(year) ? new Set(year) : undefined;
+
   return rows
     .filter((row) => isIsoDate(row.date))
     .map((row) => ({
@@ -56,7 +58,13 @@ export function normalizeDataGovHolidayRows(
       notes: cleanText(row.day),
       createdAt: `${row.date}T00:00:00.000Z`,
     }))
-    .filter((holiday) => (year ? holiday.year === year : true));
+    .filter((holiday) => {
+      if (yearSet) {
+        return yearSet.has(holiday.year);
+      }
+
+      return year ? holiday.year === year : true;
+    });
 }
 
 function cleanText(value: string): string {

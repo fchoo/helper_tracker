@@ -25,7 +25,7 @@ describe("ConfigScreen", () => {
     );
 
     await userEvent.click(screen.getByRole("button", { name: "Salary plan" }));
-    expect(screen.getByText("SGD 850.00")).toBeInTheDocument();
+    expect(screen.getByText("$850.00")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Add salary plan" }));
     const dialog = screen.getByRole("dialog", { name: "Add salary plan" });
@@ -53,6 +53,57 @@ describe("ConfigScreen", () => {
         defaultSundayOffPolicy: "ALL_SUNDAYS",
         defaultSundayOffCount: undefined,
         notes: "June salary",
+      }),
+    );
+  });
+
+  it("edits a salary config from history", async () => {
+    const user = userEvent.setup();
+    const onUpdateSalaryConfig = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <ConfigScreen
+        selectedMonth="2026-06"
+        salaryConfigs={[
+          {
+            id: "cfg_existing",
+            monthlySalary: 850,
+            effectiveStartDate: "2026-01-01",
+            otDayDivisor: 26,
+            payCycleStartDay: 1,
+            notes: "Existing",
+            createdAt: "2026-06-27T12:00:00.000Z",
+          },
+        ]}
+        onAddSalaryConfig={vi.fn()}
+        onUpdateSalaryConfig={onUpdateSalaryConfig}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Salary plan" }));
+    await user.click(
+      screen.getByRole("button", {
+        name: "Edit salary plan effective 2026-01-01",
+      }),
+    );
+    const dialog = screen.getByRole("dialog", { name: "Edit salary plan" });
+
+    await user.clear(within(dialog).getByLabelText("Monthly salary"));
+    await user.type(within(dialog).getByLabelText("Monthly salary"), "920");
+    await user.clear(within(dialog).getByLabelText("Salary notes"));
+    await user.type(within(dialog).getByLabelText("Salary notes"), "Updated plan");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Save salary plan" }),
+    );
+
+    expect(onUpdateSalaryConfig).toHaveBeenCalledWith(
+      "cfg_existing",
+      expect.objectContaining({
+        monthlySalary: 920,
+        effectiveStartDate: "2026-01-01",
+        otDayDivisor: 26,
+        payCycleStartDay: 1,
+        notes: "Updated plan",
       }),
     );
   });
@@ -171,7 +222,7 @@ describe("ConfigScreen", () => {
         salaryConfigs={[]}
         publicHolidays={[]}
         onAddSalaryConfig={vi.fn()}
-        onImportPublicHolidays={async () => [
+        onImportPublicHolidays={async (year) => [
           {
             id: "holiday_1",
             name: "National Day",
@@ -179,6 +230,15 @@ describe("ConfigScreen", () => {
             year: 2026,
             source: "SINGAPORE_IMPORT",
             notes: "Sunday",
+            createdAt: "2026-06-27T12:00:00.000Z",
+          },
+          {
+            id: "holiday_2",
+            name: `New Year's Day ${year + 1}`,
+            date: `${year + 1}-01-01`,
+            year: year + 1,
+            source: "SINGAPORE_IMPORT",
+            notes: "Thursday",
             createdAt: "2026-06-27T12:00:00.000Z",
           },
         ]}
@@ -194,8 +254,11 @@ describe("ConfigScreen", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Public holidays" }));
-    await user.click(screen.getByRole("button", { name: "Import 2026 holidays" }));
+    await user.click(
+      screen.getByRole("button", { name: "Import 2026 and 2027 holidays" }),
+    );
     expect((await screen.findAllByText("National Day")).length).toBeGreaterThan(0);
+    expect(await screen.findByText("New Year's Day 2027")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Add public holiday" }));
     let dialog = screen.getByRole("dialog", { name: "Add public holiday" });

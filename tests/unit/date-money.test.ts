@@ -103,7 +103,7 @@ describe("money helpers", () => {
     expect(() => parseMoneyInput("abc")).toThrow("Enter a valid amount.");
   });
 
-  it("formats SGD currency consistently", () => {
-    expect(formatSgd(1234.5)).toBe("SGD 1,234.50");
+  it("formats currency with a dollar sign", () => {
+    expect(formatSgd(1234.5)).toBe("$1,234.50");
   });
 });

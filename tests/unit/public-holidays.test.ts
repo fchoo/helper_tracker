@@ -51,6 +51,19 @@ describe("Singapore public holiday import", () => {
     ).toHaveLength(1);
   });
 
+  it("filters normalized rows by selected and next year", () => {
+    expect(
+      normalizeDataGovHolidayRows(
+        [
+          { date: "2025-01-01", day: "Wednesday", holiday: "New Year's Day" },
+          { date: "2026-01-01", day: "Thursday", holiday: "New Year's Day" },
+          { date: "2027-01-01", day: "Friday", holiday: "New Year's Day" },
+        ],
+        [2026, 2027],
+      ).map((holiday) => holiday.year),
+    ).toEqual([2026, 2027]);
+  });
+
   it("fetches official rows and returns normalized holidays for the selected year", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -73,5 +86,25 @@ describe("Singapore public holiday import", () => {
       }),
     ]);
     expect(fetchMock).toHaveBeenCalledWith(buildPublicHolidayUrl());
+  });
+
+  it("fetches official rows and returns selected plus next year when requested", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        result: {
+          records: [
+            { date: "2026-08-09", day: "Sunday", holiday: "National Day" },
+            { date: "2027-01-01", day: "Friday", holiday: "New Year's Day" },
+            { date: "2028-01-01", day: "Saturday", holiday: "New Year's Day" },
+          ],
+        },
+      }),
+    });
+
+    await expect(fetchSingaporePublicHolidays([2026, 2027], fetchMock)).resolves.toEqual([
+      expect.objectContaining({ date: "2026-08-09", year: 2026 }),
+      expect.objectContaining({ date: "2027-01-01", year: 2027 }),
+    ]);
   });
 });

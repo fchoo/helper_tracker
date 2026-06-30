@@ -5,12 +5,14 @@ export type SalaryPlanHistoryProps = {
   salaryConfigs: SalaryConfig[];
   activeEffectiveStartDate?: string;
   emptyMessage?: string;
+  onEditSalaryConfig?: (config: SalaryConfig) => void;
 };
 
 export function SalaryPlanHistory({
   salaryConfigs,
   activeEffectiveStartDate,
   emptyMessage = "No salary plans saved yet.",
+  onEditSalaryConfig,
 }: SalaryPlanHistoryProps) {
   if (!salaryConfigs.length) {
     return <p>{emptyMessage}</p>;
@@ -34,6 +36,18 @@ export function SalaryPlanHistory({
             <span>{formatSundayOffPolicy()}</span>
             {isActive ? <span className="status-pill status-healthy">Active</span> : null}
             {config.notes ? <span className="record-note">{config.notes}</span> : null}
+            {onEditSalaryConfig ? (
+              <div className="record-actions">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => onEditSalaryConfig(config)}
+                  aria-label={`Edit salary plan effective ${config.effectiveStartDate}`}
+                >
+                  Edit
+                </button>
+              </div>
+            ) : null}
           </li>
         );
       })}

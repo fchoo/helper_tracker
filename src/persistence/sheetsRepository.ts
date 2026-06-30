@@ -51,18 +51,23 @@ export class SheetsRepository {
 
   addSalaryConfig(config: SalaryConfig): Promise<unknown> {
     return this.client.appendValues(this.spreadsheetId, "Config!A:I", [
-      [
-        config.id,
-        config.monthlySalary,
-        config.effectiveStartDate,
-        config.otDayDivisor,
-        config.payCycleStartDay ?? 1,
-        "ALL_SUNDAYS",
-        "",
-        config.notes ?? "",
-        config.createdAt,
-      ],
+      serializeSalaryConfig(config),
     ]);
+  }
+
+  async updateSalaryConfig(config: SalaryConfig): Promise<void> {
+    const rowNumber = await this.findRowNumberById("Config!A:I", config.id);
+
+    if (!rowNumber) {
+      await this.addSalaryConfig(config);
+      return;
+    }
+
+    await this.client.updateValues(
+      this.spreadsheetId,
+      buildRowRange("Config", "I", rowNumber),
+      [serializeSalaryConfig(config)],
+    );
   }
 
   async listAdvances(): Promise<Advance[]> {
@@ -362,6 +367,20 @@ function cellBoolean(value: unknown): boolean | undefined {
   }
 
   return undefined;
+}
+
+function serializeSalaryConfig(config: SalaryConfig): unknown[] {
+  return [
+    config.id,
+    config.monthlySalary,
+    config.effectiveStartDate,
+    config.otDayDivisor,
+    config.payCycleStartDay ?? 1,
+    "ALL_SUNDAYS",
+    "",
+    config.notes ?? "",
+    config.createdAt,
+  ];
 }
 
 function serializeAdvance(advance: Advance): unknown[] {

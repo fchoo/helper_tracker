@@ -98,7 +98,7 @@ describe("AdvancesScreen", () => {
     await userEvent.type(screen.getByLabelText("Deduction amount 1"), "100");
 
     expect(
-      screen.getByText("Left to schedule: SGD 200.00"),
+      screen.getByText("Left to schedule: $200.00"),
     ).toBeInTheDocument();
     expect(screen.queryByText(/Schedule total:/)).not.toBeInTheDocument();
   });
@@ -131,7 +131,7 @@ describe("AdvancesScreen", () => {
     );
 
     expect(
-      screen.getByText("Deducted in pay month 2026-06: SGD 100.00"),
+      screen.getByText("Deducted in pay month 2026-06: $100.00"),
     ).toBeInTheDocument();
   });
 

@@ -152,8 +152,8 @@ export function PublicHolidayPanel({
               disabled={isImportingHolidays}
             >
               {isImportingHolidays
-                ? `Importing ${selectedYear}...`
-                : `Import ${selectedYear} holidays`}
+                ? `Importing ${selectedYear} and ${selectedYear + 1}...`
+                : `Import ${selectedYear} and ${selectedYear + 1} holidays`}
             </button>
           ) : null}
         </div>

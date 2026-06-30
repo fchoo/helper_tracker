@@ -130,18 +130,16 @@ export function SalaryScreen({
         aria-labelledby="included-advances-title"
         className="panel-section deduction-panel"
       >
-        <div className="panel-header">
-          <div>
-            <h3 id="included-advances-title">Advance deductions this pay month</h3>
-            <p>Scheduled deductions included in this payout.</p>
-          </div>
-          <div
-            className="deduction-total"
-            aria-label="Total advance deducted this pay month"
-          >
-            <span>Total deducted</span>
-            <strong>{formatSgd(summary.totalAdvanceDeductions)}</strong>
-          </div>
+        <div>
+          <h3 id="included-advances-title">Advance deductions this pay month</h3>
+          <p>Scheduled deductions included in this payout.</p>
+        </div>
+        <div
+          className="deduction-total"
+          aria-label="Total advance deducted this pay month"
+        >
+          <span>Total deducted</span>
+          <strong>{formatSgd(summary.totalAdvanceDeductions)}</strong>
         </div>
         {deductionRows.length ? (
           <ul className="record-list deduction-list">

@@ -123,6 +123,9 @@ export function App({
     cachedPreferences.selectedMonth ?? fallbackMonth,
   );
   const [isMonthDialogOpen, setIsMonthDialogOpen] = useState(false);
+  const [isSyncingSpreadsheet, setIsSyncingSpreadsheet] = useState(false);
+  const [syncMessage, setSyncMessage] = useState("");
+  const [syncError, setSyncError] = useState("");
   const [payCycleStartDay, setPayCycleStartDay] = useState(
     cachedPreferences.payCycleStartDay ?? defaultPayCycleStartDay,
   );
@@ -153,6 +156,9 @@ export function App({
   const activeGoogleClientId = deploymentGoogleClientId ?? browserGoogleClientId;
   const googleSheetsAccessTokenRef = useRef<string | undefined>(undefined);
   const autoLoadedSpreadsheetKeyRef = useRef<string | undefined>(undefined);
+  const canShowSpreadsheetRefresh = Boolean(
+    activeGoogleClientId && normalizeGoogleSpreadsheetId(spreadsheetId),
+  );
 
   useEffect(() => {
     const targetSpreadsheetId = normalizeGoogleSpreadsheetId(spreadsheetId);
@@ -225,6 +231,18 @@ export function App({
       isCancelled = true;
     };
   }, [createGoogleSheetsClient, spreadsheetId]);
+
+  useEffect(() => {
+    if (!syncMessage && !syncError) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setSyncMessage("");
+      setSyncError("");
+    }, 3600);
+    return () => window.clearTimeout(timeoutId);
+  }, [syncError, syncMessage]);
 
   function buildCurrentPreferences(
     overrides: CachedAppPreferences = {},
@@ -396,6 +414,25 @@ export function App({
     await verifySpreadsheetSchemaAndLoad(sheetsClient, normalizedSpreadsheetId);
   }
 
+  async function handleGlobalSyncSpreadsheet() {
+    try {
+      setSyncError("");
+      setSyncMessage("");
+      setIsSyncingSpreadsheet(true);
+      await handleSyncSpreadsheet();
+      setSyncMessage("Google Sheet synced.");
+    } catch (caughtError) {
+      setSyncMessage("");
+      setSyncError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Could not sync Google Sheet.",
+      );
+    } finally {
+      setIsSyncingSpreadsheet(false);
+    }
+  }
+
   async function createSheetsRepository(): Promise<SheetsRepository> {
     if (!activeGoogleClientId) {
       throw new Error("Add a Google OAuth Client ID before saving to Google Sheets.");
@@ -535,6 +572,35 @@ export function App({
     });
   }
 
+  async function handleUpdateSalaryConfig(
+    configId: string,
+    input: NewSalaryConfigInput,
+  ) {
+    const existingConfig = salaryConfigs.find((config) => config.id === configId);
+    const salaryConfig: SalaryConfig = {
+      ...input,
+      id: configId,
+      createdAt: existingConfig?.createdAt ?? new Date().toISOString(),
+    };
+    const repository = await createSheetsRepository();
+
+    await repository.updateSalaryConfig(salaryConfig);
+    setPayCycleStartDay(input.payCycleStartDay ?? defaultPayCycleStartDay);
+    cachePreferences({
+      payCycleStartDay: input.payCycleStartDay ?? defaultPayCycleStartDay,
+    });
+    setSalaryConfigs((currentConfigs) =>
+      currentConfigs.map((config) =>
+        config.id === configId ? salaryConfig : config,
+      ),
+    );
+    cacheSheetRecords({
+      salaryConfigs: salaryConfigs.map((config) =>
+        config.id === configId ? salaryConfig : config,
+      ),
+    });
+  }
+
   async function handleAddAdvance(payload: NewAdvancePayload) {
     const advanceId = `adv_${crypto.randomUUID()}`;
     const createdAt = new Date().toISOString();
@@ -637,7 +703,7 @@ export function App({
   }
 
   async function handleImportPublicHolidays(year: number) {
-    const importedHolidays = await fetchSingaporePublicHolidays(year);
+    const importedHolidays = await fetchSingaporePublicHolidays([year, year + 1]);
     const repository = await createSheetsRepository();
 
     await repository.upsertPublicHolidays(importedHolidays);
@@ -727,6 +793,33 @@ export function App({
         <span>Pay month</span>
         <strong>{selectedMonth}</strong>
       </button>
+      {canShowSpreadsheetRefresh ? (
+        <button
+          type="button"
+          className="sheet-refresh-fab"
+          aria-label="Refresh from sheet"
+          onClick={() => void handleGlobalSyncSpreadsheet()}
+          disabled={isSyncingSpreadsheet}
+          title="Refresh from sheet"
+        >
+          <svg
+            aria-hidden="true"
+            fill="none"
+            height="22"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2.2"
+            viewBox="0 0 24 24"
+            width="22"
+          >
+            <path d="M21 12a9 9 0 0 1-15.3 6.4" />
+            <path d="M3 12A9 9 0 0 1 18.3 5.6" />
+            <path d="M18 2v5h-5" />
+            <path d="M6 22v-5h5" />
+          </svg>
+        </button>
+      ) : null}
       <nav className="primary-nav" aria-label="Primary">
         {appRoutes.map((route) => (
           <button
@@ -751,6 +844,7 @@ export function App({
           }}
         />
       ) : null}
+      <SyncToast message={syncMessage} error={syncError} />
     </main>
   );
 
@@ -791,10 +885,10 @@ export function App({
           salaryConfigs={salaryConfigs}
           publicHolidays={publicHolidays}
           onAddSalaryConfig={handleAddSalaryConfig}
+          onUpdateSalaryConfig={handleUpdateSalaryConfig}
           onConnectSpreadsheet={handleConnectSpreadsheet}
           onCreateSpreadsheet={handleCreateSpreadsheet}
           onPickDriveSpreadsheet={handlePickDriveSpreadsheet}
-          onSyncSpreadsheet={handleSyncSpreadsheet}
           onImportPublicHolidays={handleImportPublicHolidays}
           onAddPublicHoliday={handleAddPublicHoliday}
           onUpdatePublicHoliday={handleUpdatePublicHoliday}
@@ -814,6 +908,23 @@ export function App({
       />
     );
   }
+}
+
+function SyncToast({ message, error }: { message: string; error: string }) {
+  return (
+    <div className="toast-region" aria-live="polite" aria-atomic="true">
+      {error ? (
+        <div className="toast-message toast-message-error" role="alert">
+          {error}
+        </div>
+      ) : null}
+      {message ? (
+        <div className="toast-message" role="status">
+          {message}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function MonthPickerDialog({

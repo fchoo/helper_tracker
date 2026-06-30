@@ -512,11 +512,11 @@ describe("App", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Config" }));
-    await user.click(screen.getByRole("button", { name: "Sync from sheet" }));
+    await user.click(screen.getByRole("button", { name: "Refresh from sheet" }));
     expect(await screen.findByRole("status")).toHaveTextContent(
       "Google Sheet synced.",
     );
+    await user.click(screen.getByRole("button", { name: "Config" }));
     await user.click(screen.getByRole("button", { name: "Salary plan" }));
 
     expect(requestToken).toHaveBeenCalledWith({ prompt: "" });
@@ -834,8 +834,7 @@ describe("App", () => {
     expect(screen.getByText("Stale cached salary")).toBeInTheDocument();
     expect(requestToken).not.toHaveBeenCalled();
 
-    await userEvent.click(screen.getByRole("button", { name: "Google Sheet" }));
-    await userEvent.click(screen.getByRole("button", { name: "Sync from sheet" }));
+    await userEvent.click(screen.getByRole("button", { name: "Refresh from sheet" }));
     await userEvent.click(screen.getByRole("button", { name: "Salary plan" }));
 
     expect(await screen.findByText("Fresh sheet salary")).toBeInTheDocument();

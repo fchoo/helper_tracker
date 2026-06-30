@@ -88,6 +88,65 @@ describe("SheetsRepository", () => {
     ]);
   });
 
+  it("updates salary configs in place by id", async () => {
+    const client = {
+      getValues: vi.fn().mockResolvedValue({
+        values: [
+          [
+            "config_id",
+            "monthly_salary",
+            "effective_start_date",
+            "ot_day_divisor",
+            "pay_cycle_start_day",
+            "default_sunday_off_policy",
+            "default_sunday_off_count",
+            "notes",
+            "created_at",
+          ],
+          [
+            "cfg_1",
+            "900",
+            "2026-06-01",
+            "26",
+            "26",
+            "ALL_SUNDAYS",
+            "",
+            "Initial",
+            "2026-06-27T12:00:00.000Z",
+          ],
+        ],
+      }),
+      appendValues: vi.fn().mockResolvedValue({}),
+      updateValues: vi.fn().mockResolvedValue({}),
+    };
+    const repository = new SheetsRepository("sheet_123", client);
+
+    await repository.updateSalaryConfig({
+      id: "cfg_1",
+      monthlySalary: 920,
+      effectiveStartDate: "2026-06-01",
+      otDayDivisor: 26,
+      payCycleStartDay: 26,
+      notes: "Updated",
+      createdAt: "2026-06-27T12:00:00.000Z",
+    });
+
+    expect(client.updateValues).toHaveBeenCalledWith("sheet_123", "Config!A2:I2", [
+      [
+        "cfg_1",
+        920,
+        "2026-06-01",
+        26,
+        26,
+        "ALL_SUNDAYS",
+        "",
+        "Updated",
+        "2026-06-27T12:00:00.000Z",
+      ],
+    ]);
+    expect(client.appendValues).not.toHaveBeenCalled();
+  });
+
   it("reads advances and split deductions", async () => {
     const client = {
       getValues: vi

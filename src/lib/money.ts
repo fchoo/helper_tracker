@@ -19,7 +19,7 @@ export function formatSgd(value: number): string {
   return new Intl.NumberFormat("en-SG", {
     style: "currency",
     currency: "SGD",
-    currencyDisplay: "code",
+    currencyDisplay: "narrowSymbol",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })

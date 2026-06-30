@@ -82,12 +82,12 @@ describe("SalaryScreen", () => {
     expect(screen.queryByText("Active")).not.toBeInTheDocument();
     expect(screen.queryByText("Salary version")).not.toBeInTheDocument();
     expect(screen.queryByText("Sunday rest days")).not.toBeInTheDocument();
-    expect(screen.getAllByText("SGD 765.38").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("$765.38").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Worked Sundays").length).toBeGreaterThan(0);
-    expect(screen.getByLabelText("Total advance deducted this pay month")).toHaveTextContent("SGD 100.00");
+    expect(screen.getByLabelText("Total advance deducted this pay month")).toHaveTextContent("$100.00");
     expect(screen.getByText("From Loan")).toBeInTheDocument();
     expect(
-      screen.getByText("Advance given 2026-06-01, original SGD 300.00"),
+      screen.getByText("Advance given 2026-06-01, original $300.00"),
     ).toBeInTheDocument();
     expect(screen.getAllByText("Worked Sunday").length).toBeGreaterThan(0);
     expect(screen.getByText("Overlapping off day")).toBeInTheDocument();
